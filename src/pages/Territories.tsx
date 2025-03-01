@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { MapPin, Search } from 'lucide-react';
 
@@ -15,8 +15,18 @@ const Territories: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Get referral code from URL if present
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const referralCode = queryParams.get('ref');
 
   useEffect(() => {
+    // Store referral code in localStorage if present
+    if (referralCode) {
+      localStorage.setItem('referralCode', referralCode);
+    }
+    
     const fetchTerritories = async () => {
       try {
         setIsLoading(true);
@@ -36,7 +46,7 @@ const Territories: React.FC = () => {
     };
 
     fetchTerritories();
-  }, []);
+  }, [referralCode]);
 
   // Filter territories based on search query
   const filteredTerritories = territories.filter(territory => 
@@ -56,12 +66,27 @@ const Territories: React.FC = () => {
 
   const displayTerritories = territories.length > 0 ? filteredTerritories : placeholderTerritories;
 
+  // Render referral message if there's a referral code
+  const renderReferralMessage = () => {
+    if (referralCode) {
+      return (
+        <div className="bg-green-50 text-green-700 p-4 rounded-lg mb-6">
+          <p className="font-medium">You're browsing through a hotel partner referral</p>
+          <p className="text-sm">Any bookings you make will be associated with this referral</p>
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
     <div>
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Explore Regions</h1>
         <p className="text-gray-600">Discover unique destinations and the experiences they offer</p>
       </div>
+
+      {renderReferralMessage()}
 
       {/* Search Bar */}
       <div className="relative mb-8">
@@ -90,7 +115,7 @@ const Territories: React.FC = () => {
           {displayTerritories.map((territory) => (
             <Link 
               key={territory.id} 
-              to={`/territories/${territory.id}`}
+              to={`/territories/${territory.id}${referralCode ? `?ref=${referralCode}` : ''}`}
               className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow"
             >
               <div className="h-48">

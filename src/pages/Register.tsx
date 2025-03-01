@@ -175,6 +175,18 @@ const Register: React.FC = () => {
                   Territory Manager
                 </label>
               </div>
+              <div className="flex items-center">
+                <input
+                  id="role-hotel"
+                  type="checkbox"
+                  checked={selectedRoles.includes('hotel_operator')}
+                  onChange={() => toggleRole('hotel_operator')}
+                  className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                />
+                <label htmlFor="role-hotel" className="ml-2 block text-sm text-gray-700">
+                  Hotel Operator
+                </label>
+              </div>
             </div>
             <p className="mt-1 text-xs text-gray-500">
               Note: Admin role can only be assigned by existing admins

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { MapPin, Calendar, Users, Star, ArrowLeft } from 'lucide-react';
 
@@ -29,6 +29,11 @@ const TerritoryDetail: React.FC = () => {
   const [experiences, setExperiences] = useState<Experience[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Get referral code from URL if present
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const referralCode = queryParams.get('ref');
 
   useEffect(() => {
     const fetchTerritoryAndExperiences = async () => {
@@ -117,6 +122,19 @@ const TerritoryDetail: React.FC = () => {
   const displayTerritory = territory || placeholderTerritory;
   const displayExperiences = experiences.length > 0 ? experiences : placeholderExperiences;
 
+  // Render referral message if there's a referral code
+  const renderReferralMessage = () => {
+    if (referralCode) {
+      return (
+        <div className="bg-green-50 text-green-700 p-4 rounded-lg mb-6">
+          <p className="font-medium">You're browsing through a hotel partner referral</p>
+          <p className="text-sm">Any bookings you make will be associated with this referral</p>
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
     <div>
       {isLoading ? (
@@ -129,10 +147,12 @@ const TerritoryDetail: React.FC = () => {
         </div>
       ) : (
         <>
-          <Link to="/regions" className="inline-flex items-center text-green-600 hover:text-green-700 mb-6">
+          <Link to={`/regions${referralCode ? `?ref=${referralCode}` : ''}`} className="inline-flex items-center text-green-600 hover:text-green-700 mb-6">
             <ArrowLeft className="h-4 w-4 mr-1" />
             Back to Regions
           </Link>
+
+          {renderReferralMessage()}
 
           {/* Territory Header */}
           <div className="relative rounded-xl overflow-hidden mb-8">
@@ -167,7 +187,7 @@ const TerritoryDetail: React.FC = () => {
               {displayExperiences.map((experience) => (
                 <Link 
                   key={experience.id} 
-                  to={`/experiences/${experience.id}`}
+                  to={`/experiences/${experience.id}${referralCode ? `?ref=${referralCode}` : ''}`}
                   className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow"
                 >
                   <div className="relative h-48">

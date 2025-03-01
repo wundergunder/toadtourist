@@ -341,6 +341,18 @@ const UserProfile: React.FC = () => {
                 Territory Manager
               </label>
             </div>
+            <div className="flex items-center">
+              <input
+                id="role-hotel"
+                type="checkbox"
+                checked={hasRole('hotel_operator')}
+                onChange={() => handleToggleRole('hotel_operator')}
+                className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+              />
+              <label htmlFor="role-hotel" className="ml-2 block text-sm text-gray-700">
+                Hotel Operator
+              </label>
+            </div>
             {hasRole('admin') && (
               <div className="flex items-center">
                 <input
@@ -425,6 +437,23 @@ const UserProfile: React.FC = () => {
               <div className="bg-green-50 p-4 rounded-lg">
                 <h3 className="font-semibold text-green-800 mb-1">Experiences</h3>
                 <p className="text-3xl font-bold text-green-600">0</p>
+              </div>
+            </>
+          )}
+          
+          {hasRole('hotel_operator') && (
+            <>
+              <div className="bg-green-50 p-4 rounded-lg">
+                <h3 className="font-semibold text-green-800 mb-1">Referrals</h3>
+                <p className="text-3xl font-bold text-green-600">0</p>
+              </div>
+              <div className="bg-green-50 p-4 rounded-lg">
+                <h3 className="font-semibold text-green-800 mb-1">Commissions</h3>
+                <p className="text-3xl font-bold text-green-600">$0</p>
+              </div>
+              <div className="bg-green-50 p-4 rounded-lg">
+                <h3 className="font-semibold text-green-800 mb-1">Conversion Rate</h3>
+                <p className="text-3xl font-bold text-green-600">-</p>
               </div>
             </>
           )}

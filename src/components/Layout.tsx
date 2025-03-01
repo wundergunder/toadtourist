@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Outlet, Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { LogOut, Menu, X, User, Edit } from 'lucide-react';
+import { LogOut, Menu, X, User, Edit, Hotel } from 'lucide-react';
 
 const ToadLogo = () => (
   <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -76,6 +76,9 @@ const Layout: React.FC = () => {
                 )}
                 {hasRole('tour_guide') && (
                   <Link to="/guide-dashboard" className="hover:text-green-200">Guide Dashboard</Link>
+                )}
+                {hasRole('hotel_operator') && (
+                  <Link to="/hotel-dashboard" className="hover:text-green-200">Hotel Dashboard</Link>
                 )}
                 {hasRole('tourist') && (
                   <Link to="/bookings" className="hover:text-green-200">My Bookings</Link>
@@ -156,6 +159,9 @@ const Layout: React.FC = () => {
                   )}
                   {hasRole('tour_guide') && (
                     <Link to="/guide-dashboard" className="text-white hover:text-green-200">Guide Dashboard</Link>
+                  )}
+                  {hasRole('hotel_operator') && (
+                    <Link to="/hotel-dashboard" className="text-white hover:text-green-200">Hotel Dashboard</Link>
                   )}
                   {hasRole('tourist') && (
                     <Link to="/bookings" className="text-white hover:text-green-200">My Bookings</Link>

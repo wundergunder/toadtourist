@@ -38,7 +38,7 @@ const Home: React.FC = () => {
                 <ToadLogo />
                 <h1 className="text-4xl md:text-5xl font-bold">Lazy Toad</h1>
               </div>
-              <p className="text-xl md:text-2xl mb-8">Discover unique experiences in Rio Dulce, Guatemala with local guides who know the area best.</p>
+              <p className="text-xl md:text-2xl mb-8">Discover unique experiences with local guides who know the area best.</p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <Link 
                   to="/regions" 

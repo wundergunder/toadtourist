@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
 import { 
@@ -44,6 +44,7 @@ interface Review {
 const ExperienceDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, profile } = useAuthStore();
   
   const [experience, setExperience] = useState<Experience | null>(null);
@@ -59,6 +60,10 @@ const ExperienceDetail: React.FC = () => {
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card'>('cash');
   const [bookingError, setBookingError] = useState<string | null>(null);
   const [bookingSuccess, setBookingSuccess] = useState(false);
+  
+  // Get referral code from URL if present
+  const queryParams = new URLSearchParams(location.search);
+  const referralCode = queryParams.get('ref');
 
   useEffect(() => {
     const fetchExperienceDetails = async () => {
@@ -159,6 +164,11 @@ const ExperienceDetail: React.FC = () => {
 
   const handleBooking = async () => {
     if (!user) {
+      // Store referral code in localStorage before redirecting to login
+      if (referralCode) {
+        localStorage.setItem('referralCode', referralCode);
+        localStorage.setItem('redirectAfterLogin', window.location.pathname);
+      }
       navigate('/login');
       return;
     }
@@ -184,7 +194,7 @@ const ExperienceDetail: React.FC = () => {
 
     try {
       // Create booking
-      const { error: bookingError } = await supabase
+      const { data: bookingData, error: bookingError } = await supabase
         .from('bookings')
         .insert({
           experience_id: experience.id,
@@ -194,9 +204,35 @@ const ExperienceDetail: React.FC = () => {
           total_price: experience.price * numPeople,
           payment_method: paymentMethod,
           payment_status: 'pending'
-        });
+        })
+        .select()
+        .single();
       
       if (bookingError) throw bookingError;
+
+      // If there's a referral code, create a referral record
+      if (referralCode) {
+        // First, find the referral link with this code
+        const { data: referralLinkData, error: referralLinkError } = await supabase
+          .from('referral_links')
+          .select('id')
+          .eq('code', referralCode)
+          .eq('active', true)
+          .single();
+        
+        if (!referralLinkError && referralLinkData) {
+          // Create the referral record
+          await supabase
+            .from('referrals')
+            .insert({
+              booking_id: bookingData.id,
+              referral_link_id: referralLinkData.id
+            });
+          
+          // Clear the stored referral code
+          localStorage.removeItem('referralCode');
+        }
+      }
 
       // Update available spots
       const { error: updateError } = await supabase
@@ -355,6 +391,18 @@ const ExperienceDetail: React.FC = () => {
     ));
   };
 
+  // If there's a referral code in the URL, show a message
+  const renderReferralMessage = () => {
+    if (referralCode) {
+      return (
+        <div className="bg-green-50 text-green-700 p-3 rounded-lg mb-4">
+          <p className="text-sm">You're booking through a hotel partner referral</p>
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
     <div>
       {isLoading ? (
@@ -367,10 +415,12 @@ const ExperienceDetail: React.FC = () => {
         </div>
       ) : (
         <>
-          <Link to={`/territories/${territory?.id || 'rio-dulce'}`} className="inline-flex items-center text-green-600 hover:text-green-700 mb-6">
+          <Link to={`/territories/${territory?.id || 'rio-dulce'}${referralCode ? `?ref=${referralCode}` : ''}`} className="inline-flex items-center text-green-600 hover:text-green-700 mb-6">
             <ArrowLeft className="h-4 w-4 mr-1" />
             Back to {territory?.name || 'Rio Dulce'}
           </Link>
+
+          {renderReferralMessage()}
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Left Column - Experience Details */}
@@ -425,7 +475,7 @@ const ExperienceDetail: React.FC = () => {
               <div className="bg-white rounded-xl shadow-md p-6">
                 <div className="flex items-center mb-2">
                   <MapPin className="h-5 w-5 text-green-600 mr-2" />
-                  <Link to={`/territories/${territory?.id || 'rio-dulce'}`} className="text-green-600 hover:text-green-700 font-medium">
+                  <Link to={`/territories/${territory?.id || 'rio-dulce'}${referralCode ? `?ref=${referralCode}` : ''}`} className="text-green-600 hover:text-green-700 font-medium">
                     {territory?.name || 'Rio Dulce'}
                   </Link>
                 </div>
@@ -528,6 +578,8 @@ const ExperienceDetail: React.FC = () => {
                   </div>
                 ) : (
                   <>
+                    {renderReferralMessage()}
+                    
                     {bookingError && (
                       <div className="bg-red-50 text-red-700 p-3 rounded-lg mb-4 flex items-start">
                         <AlertCircle className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />

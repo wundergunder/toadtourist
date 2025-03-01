@@ -3,11 +3,18 @@ import { Navigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
 import { 
-  Users, Map, User, AlertCircle, Check, X, Plus, Trash2, Edit, Image, DollarSign, Clock, Upload 
+  Users, Map, User, AlertCircle, Check, X, Plus, Trash2, Edit, Image, DollarSign, Clock, Upload, Hotel 
 } from 'lucide-react';
 import ImageUploader from '../components/ImageUploader';
+import { UserRole } from '../types/supabase';
 
 interface TourGuide {
+  id: string;
+  email: string;
+  full_name: string;
+}
+
+interface HotelOperator {
   id: string;
   email: string;
   full_name: string;
@@ -34,9 +41,10 @@ interface Territory {
 }
 
 const TerritoryManagement: React.FC = () => {
-  const { user, profile } = useAuthStore();
+  const { user, profile, hasRole } = useAuthStore();
   
   const [tourGuides, setTourGuides] = useState<TourGuide[]>([]);
+  const [hotelOperators, setHotelOperators] = useState<HotelOperator[]>([]);
   const [experiences, setExperiences] = useState<Experience[]>([]);
   const [territory, setTerritory] = useState<Territory | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -44,6 +52,7 @@ const TerritoryManagement: React.FC = () => {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   
   const [showAddGuideForm, setShowAddGuideForm] = useState(false);
+  const [showAddHotelOperatorForm, setShowAddHotelOperatorForm] = useState(false);
   const [showAddExperienceForm, setShowAddExperienceForm] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
@@ -52,6 +61,13 @@ const TerritoryManagement: React.FC = () => {
     email: '',
     fullName: '',
     password: ''
+  });
+
+  const [newHotelOperator, setNewHotelOperator] = useState({
+    email: '',
+    fullName: '',
+    password: '',
+    hotelName: ''
   });
 
   const [newExperience, setNewExperience] = useState({
@@ -88,11 +104,21 @@ const TerritoryManagement: React.FC = () => {
       const { data: guidesData, error: guidesError } = await supabase
         .from('profiles')
         .select('id, email, full_name')
-        .eq('role', 'tour_guide')
+        .contains('roles', ['tour_guide'])
         .eq('territory_id', profile.territory_id);
       
       if (guidesError) throw guidesError;
       setTourGuides(guidesData || []);
+      
+      // Fetch hotel operators
+      const { data: hotelOperatorsData, error: hotelOperatorsError } = await supabase
+        .from('profiles')
+        .select('id, email, full_name')
+        .contains('roles', ['hotel_operator'])
+        .eq('territory_id', profile.territory_id);
+      
+      if (hotelOperatorsError) throw hotelOperatorsError;
+      setHotelOperators(hotelOperatorsData || []);
       
       // Fetch experiences
       const { data: experiencesData, error: experiencesError } = await supabase
@@ -122,7 +148,7 @@ const TerritoryManagement: React.FC = () => {
   };
 
   useEffect(() => {
-    if (user && profile?.role === 'territory_manager') {
+    if (user && hasRole('territory_manager')) {
       fetchData();
     }
   }, [user, profile]);
@@ -166,7 +192,7 @@ const TerritoryManagement: React.FC = () => {
         options: {
           data: {
             full_name: fullName,
-            role: 'tour_guide',
+            roles: ['tourist', 'tour_guide'],
             territory_id: profile.territory_id
           }
         }
@@ -204,22 +230,109 @@ const TerritoryManagement: React.FC = () => {
     }
   };
 
+  const handleAddHotelOperator = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError(null);
+    setFormSuccess(null);
+    
+    if (!profile?.territory_id) {
+      setFormError('You are not assigned to a region');
+      return;
+    }
+    
+    const { email, fullName, password, hotelName } = newHotelOperator;
+    
+    if (!email || !fullName || !password || !hotelName) {
+      setFormError('Please fill in all required fields');
+      return;
+    }
+    
+    try {
+      // First check if the email already exists
+      const { data: existingUser, error: checkError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', email)
+        .maybeSingle();
+      
+      if (checkError) throw checkError;
+      
+      if (existingUser) {
+        setFormError('A user with this email already exists. Please use a different email address.');
+        return;
+      }
+      
+      // Create user in auth with metadata that includes the territory_id
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName,
+            roles: ['tourist', 'hotel_operator'],
+            territory_id: profile.territory_id,
+            hotel_name: hotelName
+          }
+        }
+      });
+      
+      if (authError) {
+        if (authError.message.includes('already registered')) {
+          setFormError('A user with this email already exists. Please use a different email address.');
+          return;
+        }
+        throw authError;
+      }
+      
+      if (authData.user) {
+        // Wait for the trigger to create the profile
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Refresh the hotel operator list
+        fetchData();
+        
+        setFormSuccess('Hotel operator added successfully');
+        setNewHotelOperator({
+          email: '',
+          fullName: '',
+          password: '',
+          hotelName: ''
+        });
+        setTimeout(() => {
+          setShowAddHotelOperatorForm(false);
+          setFormSuccess(null);
+        }, 2000);
+      }
+    } catch (error) {
+      console.error('Error adding hotel operator:', error);
+      setFormError('Failed to add hotel operator. Please try again.');
+    }
+  };
+
   const handleRemoveGuide = async (guideId: string) => {
     if (!confirm('Are you sure you want to remove this tour guide?')) {
       return;
     }
     
     try {
-      // Delete profile
-      const { error: profileError } = await supabase
+      // Since we don't have admin privileges, we'll update the profile instead of deleting it
+      // First, update the profile to remove territory assignment and change role
+      const { error: updateError } = await supabase
         .from('profiles')
-        .delete()
+        .update({ 
+          territory_id: null,
+          roles: ['tourist']
+        })
         .eq('id', guideId);
       
-      if (profileError) throw profileError;
+      if (updateError) throw updateError;
       
       // Update local state
       setTourGuides(tourGuides.filter(guide => guide.id !== guideId));
+      
+      // Refresh data to ensure we have the latest state
+      fetchData();
+      
       setSuccessMessage('Tour guide removed successfully');
       setTimeout(() => {
         setSuccessMessage(null);
@@ -227,6 +340,39 @@ const TerritoryManagement: React.FC = () => {
     } catch (error) {
       console.error('Error removing tour guide:', error);
       setError('Failed to remove tour guide. Please try again.');
+    }
+  };
+
+  const handleRemoveHotelOperator = async (operatorId: string) => {
+    if (!confirm('Are you sure you want to remove this hotel operator?')) {
+      return;
+    }
+    
+    try {
+      // Update the profile to remove territory assignment and hotel_operator role
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ 
+          territory_id: null,
+          roles: ['tourist']
+        })
+        .eq('id', operatorId);
+      
+      if (updateError) throw updateError;
+      
+      // Update local state
+      setHotelOperators(hotelOperators.filter(operator => operator.id !== operatorId));
+      
+      // Refresh data to ensure we have the latest state
+      fetchData();
+      
+      setSuccessMessage('Hotel operator removed successfully');
+      setTimeout(() => {
+        setSuccessMessage(null);
+      }, 3000);
+    } catch (error) {
+      console.error('Error removing hotel operator:', error);
+      setError('Failed to remove hotel operator. Please try again.');
     }
   };
 
@@ -374,7 +520,7 @@ const TerritoryManagement: React.FC = () => {
   };
 
   // If not territory manager, redirect to home
-  if (user && profile && profile.role !== 'territory_manager') {
+  if (user && profile && !hasRole('territory_manager')) {
     return <Navigate to="/" />;
   }
 
@@ -403,6 +549,14 @@ const TerritoryManagement: React.FC = () => {
       id: 'guide-2',
       email: 'elena@example.com',
       full_name: 'Elena Fuentes'
+    }
+  ];
+
+  const placeholderHotelOperators = [
+    {
+      id: 'hotel-1',
+      email: 'hotel@example.com',
+      full_name: 'Hotel Rio Dulce'
     }
   ];
 
@@ -437,6 +591,7 @@ const TerritoryManagement: React.FC = () => {
 
   const displayTerritory = territory || placeholderTerritories[0];
   const displayGuides = tourGuides.length > 0 ? tourGuides : placeholderGuides;
+  const displayHotelOperators = hotelOperators.length > 0 ? hotelOperators : placeholderHotelOperators;
   const displayExperiences = experiences.length > 0 ? experiences : placeholderExperiences;
 
   return (
@@ -462,7 +617,7 @@ const TerritoryManagement: React.FC = () => {
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500"></div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Tour Guides Section */}
           <div className="bg-white rounded-xl shadow-md overflow-hidden">
             <div className="p-6 border-b border-gray-200">
@@ -528,8 +683,67 @@ const TerritoryManagement: React.FC = () => {
             </div>
           </div>
           
-          {/* Experiences Section */}
+          {/* Hotel Operators Section */}
           <div className="bg-white rounded-xl shadow-md overflow-hidden">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center">
+                  <Hotel className="h-6 w-6 text-green-600 mr-2" />
+                  <h2 className="text-xl font-bold">Hotel Operators</h2>
+                </div>
+                <button
+                  onClick={() => setShowAddHotelOperatorForm(true)}
+                  className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md flex items-center"
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Hotel
+                </button>
+              </div>
+            </div>
+            
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Name
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Email
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {displayHotelOperators.map((operator) => (
+                    <tr key={operator.id}>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="font-medium text-gray-900">{operator.full_name}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-gray-500">{operator.email}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <div className="flex justify-end space-x-2">
+                          <button
+                            onClick={() => handleRemoveHotelOperator(operator.id)}
+                            className="text-red-600 hover:text-red-900"
+                          >
+                            <Trash2 className="h-5 w-5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          
+          {/* Experiences Section */}
+          <div className="bg-white rounded-xl shadow-md overflow-hidden lg:col-span-2">
             <div className="p-6 border-b border-gray-200">
               <div className="flex justify-between items-center">
                 <div className="flex items-center">
@@ -609,11 +823,11 @@ const TerritoryManagement: React.FC = () => {
         </div>
       )}
       
-      {/* Add Tour Guide Modal */}
-      {showAddGuideForm && (
+      {/* Add Hotel Operator Modal */}
+      {showAddHotelOperatorForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-            <h2 className="text-xl font-bold mb-4">Add Tour Guide</h2>
+            <h2 className="text-xl font-bold mb-4">Add Hotel Operator</h2>
             
             {formSuccess ? (
               <div className="bg-green-50 text-green-700 p-4 rounded-lg mb-4 flex items-start">
@@ -621,7 +835,7 @@ const TerritoryManagement: React.FC = () => {
                 <p>{formSuccess}</p>
               </div>
             ) : (
-              <form onSubmit={handleAddGuide}>
+              <form onSubmit={handleAddHotelOperator}>
                 {formError && (
                   <div className="bg-red-50 text-red-700 p-3 rounded-lg mb-4 flex items-start">
                     <AlertCircle className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />
@@ -630,14 +844,28 @@ const TerritoryManagement: React.FC = () => {
                 )}
                 
                 <div className="mb-4">
+                  <label htmlFor="hotelName" className="block text-sm font-medium text-gray-700 mb-1">
+                    Hotel Name *
+                  </label>
+                  <input
+                    id="hotelName"
+                    type="text"
+                    value={newHotelOperator.hotelName}
+                    onChange={(e) => setNewHotelOperator({...newHotelOperator, hotelName: e.target.value})}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    required
+                  />
+                </div>
+                
+                <div className="mb-4">
                   <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-1">
-                    Full Name *
+                    Contact Person Name *
                   </label>
                   <input
                     id="fullName"
                     type="text"
-                    value={newGuide.fullName}
-                    onChange={(e) => setNewGuide({...newGuide, fullName: e.target.value})}
+                    value={newHotelOperator.fullName}
+                    onChange={(e) => setNewHotelOperator({...newHotelOperator, fullName: e.target.value})}
                     className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
                     required
                   />
@@ -650,8 +878,8 @@ const TerritoryManagement: React.FC = () => {
                   <input
                     id="email"
                     type="email"
-                    value={newGuide.email}
-                    onChange={(e) => setNewGuide({...newGuide, email: e.target.value})}
+                    value={newHotelOperator.email}
+                    onChange={(e) => setNewHotelOperator({...newHotelOperator, email: e.target.value})}
                     className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
                     required
                   />
@@ -664,8 +892,8 @@ const TerritoryManagement: React.FC = () => {
                   <input
                     id="password"
                     type="password"
-                    value={newGuide.password}
-                    onChange={(e) => setNewGuide({...newGuide, password: e.target.value})}
+                    value={newHotelOperator.password}
+                    onChange={(e) => setNewHotelOperator({...newHotelOperator, password: e.target.value})}
                     className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
                     required
                   />
@@ -674,7 +902,7 @@ const TerritoryManagement: React.FC = () => {
                 <div className="flex justify-end space-x-3">
                   <button
                     type="button"
-                    onClick={() => setShowAddGuideForm(false)}
+                    onClick={() => setShowAddHotelOperatorForm(false)}
                     className="bg-white border border-gray-300 text-gray-700 font-medium py-2 px-4 rounded-md hover:bg-gray-50"
                   >
                     Cancel
@@ -683,7 +911,7 @@ const TerritoryManagement: React.FC = () => {
                     type="submit"
                     className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md"
                   >
-                    Add Guide
+                    Add Hotel Operator
                   </button>
                 </div>
               </form>
@@ -923,6 +1151,88 @@ const TerritoryManagement: React.FC = () => {
                 Cancel
               </button>
             </div>
+          </div> </div>
+      )}
+      
+      {/* Add Tour Guide Modal */}
+      {showAddGuideForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <h2 className="text-xl font-bold mb-4">Add Tour Guide</h2>
+            
+            {formSuccess ? (
+              <div className="bg-green-50 text-green-700 p-4 rounded-lg mb-4 flex items-start">
+                <Check className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />
+                <p>{formSuccess}</p>
+              </div>
+            ) : (
+              <form onSubmit={handleAddGuide}>
+                {formError && (
+                  <div className="bg-red-50 text-red-700 p-3 rounded-lg mb-4 flex items-start">
+                    <AlertCircle className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />
+                    <p>{formError}</p>
+                  </div>
+                )}
+                
+                <div className="mb-4">
+                  <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-1">
+                    Full Name *
+                  </label>
+                  <input
+                    id="fullName"
+                    type="text"
+                    value={newGuide.fullName}
+                    onChange={(e) => setNewGuide({...newGuide, fullName: e.target.value})}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    required
+                  />
+                </div>
+                
+                <div className="mb-4">
+                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                    Email *
+                  </label>
+                  <input
+                    id="email"
+                    type="email"
+                    value={newGuide.email}
+                    onChange={(e) => setNewGuide({...newGuide, email: e.target.value})}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    required
+                  />
+                </div>
+                
+                <div className="mb-6">
+                  <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                    Password *
+                  </label>
+                  <input
+                    id="password"
+                    type="password"
+                    value={newGuide.password}
+                    onChange={(e) => setNewGuide({...newGuide, password: e.target.value})}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    required
+                  />
+                </div>
+                
+                <div className="flex justify-end space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddGuideForm(false)}
+                    className="bg-white border border-gray-300 text-gray-700 font-medium py-2 px-4 rounded-md hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md"
+                  >
+                    Add Guide
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

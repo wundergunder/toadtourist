@@ -6,7 +6,7 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
-export type UserRole = 'admin' | 'territory_manager' | 'tour_guide' | 'tourist';
+export type UserRole = 'admin' | 'territory_manager' | 'tour_guide' | 'tourist' | 'hotel_operator';
 
 export interface Database {
   public: {
@@ -83,6 +83,78 @@ export interface Database {
           id?: string
           user_id?: string
           role?: UserRole
+          created_at?: string
+        }
+      }
+      referral_links: {
+        Row: {
+          id: string
+          user_id: string
+          code: string
+          name: string
+          created_at: string
+          active: boolean
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          code?: string
+          name: string
+          created_at?: string
+          active?: boolean
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          code?: string
+          name?: string
+          created_at?: string
+          active?: boolean
+        }
+      }
+      referrals: {
+        Row: {
+          id: string
+          booking_id: string
+          referral_link_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          booking_id: string
+          referral_link_id: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          booking_id?: string
+          referral_link_id?: string
+          created_at?: string
+        }
+      }
+      commissions: {
+        Row: {
+          id: string
+          referral_id: string
+          amount: number
+          status: 'pending' | 'paid'
+          paid_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          referral_id: string
+          amount: number
+          status: 'pending' | 'paid'
+          paid_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          referral_id?: string
+          amount?: number
+          status?: 'pending' | 'paid'
+          paid_at?: string | null
           created_at?: string
         }
       }
