@@ -1,6 +1,19 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Frown as Frog, MapPin, Calendar, Star, Users } from 'lucide-react';
+import { Calendar, MapPin, Star, Users } from 'lucide-react';
+
+const ToadLogo = () => (
+  <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect y="33" width="48" height="9" rx="3" fill="#8B4513" />
+    <ellipse cx="24" cy="21" rx="15" ry="12" fill="#4CAF50" />
+    <ellipse cx="24" cy="24" rx="12" ry="9" fill="#388E3C" />
+    <circle cx="18" cy="18" r="3" fill="white" />
+    <circle cx="18" cy="18" r="1.5" fill="black" />
+    <circle cx="30" cy="18" r="3" fill="white" />
+    <circle cx="30" cy="18" r="1.5" fill="black" />
+    <path d="M21 27C23 29 25 29 27 27" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+  </svg>
+);
 
 const Home: React.FC = () => {
   return (
@@ -19,8 +32,8 @@ const Home: React.FC = () => {
           <div className="container mx-auto px-6 py-12 text-white">
             <div className="max-w-2xl">
               <div className="flex items-center mb-4">
-                <Frog className="h-12 w-12 mr-3" />
-                <h1 className="text-4xl md:text-5xl font-bold">ToadTourism</h1>
+                <ToadLogo />
+                <h1 className="text-4xl md:text-5xl font-bold">Lazy Toad</h1>
               </div>
               <p className="text-xl md:text-2xl mb-8">Discover unique experiences in Rio Dulce, Guatemala with local guides who know the area best.</p>
               <div className="flex flex-col sm:flex-row gap-4">
@@ -192,7 +205,7 @@ const Home: React.FC = () => {
 
       {/* How It Works */}
       <section className="bg-green-50 rounded-xl p-8">
-        <h2 className="text-2xl font-bold text-center mb-8">How ToadTourism Works</h2>
+        <h2 className="text-2xl font-bold text-center mb-8">How Lazy Toad Works</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="text-center">
             <div className="bg-green-100 h-16 w-16 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -228,7 +241,7 @@ const Home: React.FC = () => {
       <section className="bg-green-600 text-white rounded-xl p-8 text-center">
         <h2 className="text-3xl font-bold mb-4">Ready for Your Next Adventure?</h2>
         <p className="text-xl mb-6 max-w-2xl mx-auto">
-          Join ToadTourism today and discover unforgettable experiences in Rio Dulce and beyond.
+          Join Lazy Toad today and discover unforgettable experiences in Rio Dulce and beyond.
         </p>
         <Link 
           to="/register" 

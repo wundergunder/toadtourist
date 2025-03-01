@@ -1,7 +1,20 @@
 import React from 'react';
 import { Outlet, Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { Frown as Frog, LogOut, Menu, X } from 'lucide-react';
+import { LogOut, Menu, X } from 'lucide-react';
+
+const ToadLogo = () => (
+  <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect y="22" width="32" height="6" rx="2" fill="#8B4513" />
+    <ellipse cx="16" cy="14" rx="10" ry="8" fill="#4CAF50" />
+    <ellipse cx="16" cy="16" rx="8" ry="6" fill="#388E3C" />
+    <circle cx="12" cy="12" r="2" fill="white" />
+    <circle cx="12" cy="12" r="1" fill="black" />
+    <circle cx="20" cy="12" r="2" fill="white" />
+    <circle cx="20" cy="12" r="1" fill="black" />
+    <path d="M14 18C15.3333 19.3333 16.6667 19.3333 18 18" stroke="white" strokeWidth="1" strokeLinecap="round" />
+  </svg>
+);
 
 const Layout: React.FC = () => {
   const { user, profile, signOut } = useAuthStore();
@@ -18,8 +31,8 @@ const Layout: React.FC = () => {
       <header className="bg-green-600 text-white shadow-md">
         <div className="container mx-auto px-4 py-3 flex justify-between items-center">
           <Link to="/" className="flex items-center space-x-2">
-            <Frog className="h-8 w-8" />
-            <span className="text-xl font-bold">ToadTourism</span>
+            <ToadLogo />
+            <span className="text-xl font-bold">Lazy Toad</span>
           </Link>
           
           <div className="hidden md:flex items-center space-x-6">
@@ -110,8 +123,8 @@ const Layout: React.FC = () => {
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="flex items-center space-x-2 mb-4 md:mb-0">
-              <Frog className="h-6 w-6" />
-              <span className="text-lg font-bold">ToadTourism</span>
+              <ToadLogo />
+              <span className="text-lg font-bold">Lazy Toad</span>
             </div>
             <div className="flex flex-col md:flex-row md:space-x-6 text-center md:text-left">
               <Link to="/about" className="hover:text-green-200 mb-2 md:mb-0">About Us</Link>
@@ -121,7 +134,7 @@ const Layout: React.FC = () => {
             </div>
           </div>
           <div className="mt-6 text-center text-green-200">
-            <p>&copy; {new Date().getFullYear()} ToadTourism. All rights reserved.</p>
+            <p>&copy; {new Date().getFullYear()} Lazy Toad. All rights reserved.</p>
           </div>
         </div>
       </footer>

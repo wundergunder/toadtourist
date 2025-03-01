@@ -1,7 +1,20 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { Frown as Frog, Mail, Lock, User, AlertCircle } from 'lucide-react';
+import { Mail, Lock, User, AlertCircle } from 'lucide-react';
+
+const ToadLogo = () => (
+  <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect y="33" width="48" height="9" rx="3" fill="#8B4513" />
+    <ellipse cx="24" cy="21" rx="15" ry="12" fill="#4CAF50" />
+    <ellipse cx="24" cy="24" rx="12" ry="9" fill="#388E3C" />
+    <circle cx="18" cy="18" r="3" fill="white" />
+    <circle cx="18" cy="18" r="1.5" fill="black" />
+    <circle cx="30" cy="18" r="3" fill="white" />
+    <circle cx="30" cy="18" r="1.5" fill="black" />
+    <path d="M21 27C23 29 25 29 27 27" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+  </svg>
+);
 
 const Register: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -37,9 +50,9 @@ const Register: React.FC = () => {
     <div className="max-w-md mx-auto bg-white rounded-xl shadow-md overflow-hidden">
       <div className="p-8">
         <div className="flex justify-center mb-6">
-          <Frog className="h-12 w-12 text-green-600" />
+          <ToadLogo />
         </div>
-        <h2 className="text-2xl font-bold text-center mb-6">Create your ToadTourism account</h2>
+        <h2 className="text-2xl font-bold text-center mb-6">Create your Lazy Toad account</h2>
         
         {(error || formError) && (
           <div className="bg-red-50 text-red-700 p-3 rounded-lg mb-4 flex items-start">

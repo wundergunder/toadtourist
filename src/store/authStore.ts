@@ -65,38 +65,52 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       set({ isLoading: true, error: null });
       
+      // Sign up with user metadata
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          data: {
+            full_name: fullName,
+            role: role
+          }
+        }
       });
 
       if (error) throw error;
 
       if (data.user) {
-        // Create profile
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert({
-            id: data.user.id,
-            email,
-            full_name: fullName,
-            role,
-            territory_id: null,
-          });
-
-        if (profileError) throw profileError;
+        // Wait a moment for the trigger to create the profile
+        await new Promise(resolve => setTimeout(resolve, 1000));
         
-        set({ 
-          user: data.user,
-          profile: {
-            id: data.user.id,
-            email,
-            full_name: fullName,
-            role,
-            territory_id: null,
-          },
-          isLoading: false 
-        });
+        // Fetch the created profile
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', data.user.id)
+          .single();
+          
+        if (profileError) {
+          console.warn('Profile not found immediately after signup, this is expected');
+          // Create a temporary profile object for the UI
+          set({ 
+            user: data.user,
+            profile: {
+              id: data.user.id,
+              email,
+              full_name: fullName,
+              role,
+              territory_id: null,
+            },
+            isLoading: false 
+          });
+        } else {
+          set({ 
+            user: data.user,
+            profile: profileData as Profile,
+            isLoading: false 
+          });
+        }
       }
     } catch (error) {
       set({ 
