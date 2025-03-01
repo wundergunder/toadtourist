@@ -3,7 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
 import { 
-  Users, Map, User, AlertCircle, Check, X, Plus, Trash2, Calendar, Image, DollarSign, Clock 
+  Users, Map, User, AlertCircle, Check, X, Plus, Trash2, Calendar, Image, DollarSign, Clock, Edit, Save 
 } from 'lucide-react';
 
 interface TourGuide {
@@ -15,11 +15,13 @@ interface TourGuide {
 interface Experience {
   id: string;
   title: string;
+  description?: string;
   price: number;
   duration: number;
   max_spots: number;
   available_spots: number;
   guide_id: string;
+  image_urls?: string[];
   profiles: {
     full_name: string;
   };
@@ -40,6 +42,7 @@ const TerritoryManagement: React.FC = () => {
   const [territory, setTerritory] = useState<Territory | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   
   const [showAddGuideForm, setShowAddGuideForm] = useState(false);
   const [showAddExperienceForm, setShowAddExperienceForm] = useState(false);
@@ -62,60 +65,88 @@ const TerritoryManagement: React.FC = () => {
     imageUrls: ['']
   });
 
+  // Editing states
+  const [editingGuideId, setEditingGuideId] = useState<string | null>(null);
+  const [editingExperienceId, setEditingExperienceId] = useState<string | null>(null);
+  
+  const [editGuide, setEditGuide] = useState<{
+    full_name: string;
+  }>({
+    full_name: ''
+  });
+  
+  const [editExperience, setEditExperience] = useState<{
+    title: string;
+    price: number;
+    duration: number;
+    max_spots: number;
+    available_spots: number;
+    guide_id: string;
+  }>({
+    title: '',
+    price: 0,
+    duration: 0,
+    max_spots: 0,
+    available_spots: 0,
+    guide_id: ''
+  });
+
+  const fetchData = async () => {
+    if (!profile?.territory_id) return;
+
+    try {
+      setIsLoading(true);
+      
+      // Fetch territory
+      const { data: territoryData, error: territoryError } = await supabase
+        .from('territories')
+        .select('*')
+        .eq('id', profile.territory_id)
+        .single();
+      
+      if (territoryError) throw territoryError;
+      setTerritory(territoryData);
+      
+      // Fetch tour guides
+      const { data: guidesData, error: guidesError } = await supabase
+        .from('profiles')
+        .select('id, email, full_name')
+        .eq('role', 'tour_guide')
+        .eq('territory_id', profile.territory_id);
+      
+      if (guidesError) throw guidesError;
+      setTourGuides(guidesData || []);
+      
+      // Fetch experiences
+      const { data: experiencesData, error: experiencesError } = await supabase
+        .from('experiences')
+        .select(`
+          id,
+          title,
+          description,
+          price,
+          duration,
+          max_spots,
+          available_spots,
+          guide_id,
+          image_urls,
+          profiles:guide_id (
+            full_name
+          )
+        `)
+        .eq('territory_id', profile.territory_id);
+      
+      if (experiencesError) throw experiencesError;
+      setExperiences(experiencesData || []);
+    } catch (error) {
+      console.error('Error fetching region management data:', error);
+      setError('Failed to load data. Please try again later.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
-      if (!profile?.territory_id) return;
-
-      try {
-        setIsLoading(true);
-        
-        // Fetch territory
-        const { data: territoryData, error: territoryError } = await supabase
-          .from('territories')
-          .select('*')
-          .eq('id', profile.territory_id)
-          .single();
-        
-        if (territoryError) throw territoryError;
-        setTerritory(territoryData);
-        
-        // Fetch tour guides
-        const { data: guidesData, error: guidesError } = await supabase
-          .from('profiles')
-          .select('id, email, full_name')
-          .eq('role', 'tour_guide')
-          .eq('territory_id', profile.territory_id);
-        
-        if (guidesError) throw guidesError;
-        setTourGuides(guidesData || []);
-        
-        // Fetch experiences
-        const { data: experiencesData, error: experiencesError } = await supabase
-          .from('experiences')
-          .select(`
-            id,
-            title,
-            price,
-            duration,
-            max_spots,
-            available_spots,
-            guide_id,
-            profiles:guide_id (
-              full_name
-            )
-          `)
-          .eq('territory_id', profile.territory_id);
-        
-        if (experiencesError) throw experiencesError;
-        setExperiences(experiencesData || []);
-      } catch (error) {
-        console.error('Error fetching region management data:', error);
-        setError('Failed to load data. Please try again later.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     if (user && profile?.role === 'territory_manager') {
       fetchData();
     }
@@ -290,6 +321,163 @@ const TerritoryManagement: React.FC = () => {
     }
   };
 
+  const handleDeleteExperience = async (experienceId: string) => {
+    if (!confirm('Are you sure you want to delete this experience? This action cannot be undone.')) {
+      return;
+    }
+    
+    setError(null);
+    setSuccessMessage(null);
+    
+    try {
+      // First check if there are any bookings for this experience
+      const { data: bookingsData, error: bookingsError } = await supabase
+        .from('bookings')
+        .select('id')
+        .eq('experience_id', experienceId);
+      
+      if (bookingsError) throw bookingsError;
+      
+      if (bookingsData && bookingsData.length > 0) {
+        setError('Cannot delete this experience because it has existing bookings.');
+        return;
+      }
+      
+      // Delete the experience
+      const { error: deleteError } = await supabase
+        .from('experiences')
+        .delete()
+        .eq('id', experienceId);
+      
+      if (deleteError) throw deleteError;
+      
+      // Update local state
+      setExperiences(experiences.filter(exp => exp.id !== experienceId));
+      setSuccessMessage('Experience deleted successfully');
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        setSuccessMessage(null);
+      }, 3000);
+    } catch (error) {
+      console.error('Error deleting experience:', error);
+      setError('Failed to delete experience. Please try again.');
+    }
+  };
+
+  const handleEditGuide = (guide: TourGuide) => {
+    setEditingGuideId(guide.id);
+    setEditGuide({
+      full_name: guide.full_name
+    });
+  };
+
+  const handleSaveGuideEdit = async (guideId: string) => {
+    try {
+      setError(null);
+      
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          full_name: editGuide.full_name
+        })
+        .eq('id', guideId);
+      
+      if (error) throw error;
+      
+      // Update local state
+      setTourGuides(tourGuides.map(guide => 
+        guide.id === guideId 
+          ? { ...guide, full_name: editGuide.full_name }
+          : guide
+      ));
+      
+      // Also update any experiences that reference this guide
+      setExperiences(experiences.map(exp => 
+        exp.guide_id === guideId 
+          ? { ...exp, profiles: { full_name: editGuide.full_name } }
+          : exp
+      ));
+      
+      setEditingGuideId(null);
+      setSuccessMessage('Tour guide updated successfully');
+      setTimeout(() => {
+        setSuccessMessage(null);
+      }, 3000);
+    } catch (error) {
+      console.error('Error updating tour guide:', error);
+      setError('Failed to update tour guide. Please try again.');
+    }
+  };
+
+  const handleEditExperience = (experience: Experience) => {
+    setEditingExperienceId(experience.id);
+    setEditExperience({
+      title: experience.title,
+      price: experience.price,
+      duration: experience.duration,
+      max_spots: experience.max_spots,
+      available_spots: experience.available_spots,
+      guide_id: experience.guide_id
+    });
+  };
+
+  const handleSaveExperienceEdit = async (experienceId: string) => {
+    try {
+      setError(null);
+      
+      // Check if available spots is greater than max spots
+      if (editExperience.available_spots > editExperience.max_spots) {
+        setError('Available spots cannot be greater than max spots');
+        return;
+      }
+      
+      const { error } = await supabase
+        .from('experiences')
+        .update({
+          title: editExperience.title,
+          price: editExperience.price,
+          duration: editExperience.duration,
+          max_spots: editExperience.max_spots,
+          available_spots: editExperience.available_spots,
+          guide_id: editExperience.guide_id
+        })
+        .eq('id', experienceId);
+      
+      if (error) throw error;
+      
+      // Get the guide name for the updated experience
+      const guide = tourGuides.find(g => g.id === editExperience.guide_id);
+      
+      // Update local state
+      setExperiences(experiences.map(exp => 
+        exp.id === experienceId 
+          ? {
+              ...exp,
+              title: editExperience.title,
+              price: editExperience.price,
+              duration: editExperience.duration,
+              max_spots: editExperience.max_spots,
+              available_spots: editExperience.available_spots,
+              guide_id: editExperience.guide_id,
+              profiles: {
+                full_name: guide ? guide.full_name : exp.profiles.full_name
+              }
+            }
+          : exp
+      ));
+      
+      setEditingExperienceId(null);
+      setSuccessMessage('Experience updated successfully');
+      setTimeout(() => {
+        setSuccessMessage(null);
+      }, 3000);
+    } catch (error) {
+      console.error('Error updating experience:', error);
+      setError('Failed to update experience. Please try again.');
+    }
+  };
+
   const handleAddImageUrl = () => {
     setNewExperience({
       ...newExperience,
@@ -393,6 +581,13 @@ const TerritoryManagement: React.FC = () => {
         </div>
       )}
       
+      {successMessage && (
+        <div className="bg-green-50 text-green-700 p-4 rounded-lg mb-6 flex items-start">
+          <Check className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />
+          <p>{successMessage}</p>
+        </div>
+      )}
+      
       {isLoading ? (
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500"></div>
@@ -436,18 +631,44 @@ const TerritoryManagement: React.FC = () => {
                   {displayGuides.map((guide) => (
                     <tr key={guide.id}>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="font-medium text-gray-900">{guide.full_name}</div>
+                        {editingGuideId === guide.id ? (
+                          <input
+                            type="text"
+                            value={editGuide.full_name}
+                            onChange={(e) => setEditGuide({...editGuide, full_name: e.target.value})}
+                            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                          />
+                        ) : (
+                          <div className="font-medium text-gray-900">{guide.full_name}</div>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-gray-500">{guide.email}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button
-                          onClick={() => handleRemoveGuide(guide.id)}
-                          className="text-red-600 hover:text-red-900"
-                        >
-                          <Trash2 className="h-5 w-5" />
-                        </button>
+                        <div className="flex justify-end space-x-2">
+                          {editingGuideId === guide.id ? (
+                            <button
+                              onClick={() => handleSaveGuideEdit(guide.id)}
+                              className="text-green-600 hover:text-green-900"
+                            >
+                              <Save className="h-5 w-5" />
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleEditGuide(guide)}
+                              className="text-blue-600 hover:text-blue-900"
+                            >
+                              <Edit className="h-5 w-5" />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleRemoveGuide(guide.id)}
+                            className="text-red-600 hover:text-red-900"
+                          >
+                            <Trash2 className="h-5 w-5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -490,23 +711,108 @@ const TerritoryManagement: React.FC = () => {
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Availability
                     </th>
+                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {displayExperiences.map((experience) => (
                     <tr key={experience.id}>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="font-medium text-gray-900">{experience.title}</div>
+                        {editingExperienceId === experience.id ? (
+                          <input
+                            type="text"
+                            value={editExperience.title}
+                            onChange={(e) => setEditExperience({...editExperience, title: e.target.value})}
+                            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                          />
+                        ) : (
+                          <div className="font-medium text-gray-900">{experience.title}</div>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-gray-500">{experience.profiles.full_name}</div>
+                        {editingExperienceId === experience.id ? (
+                          <select
+                            value={editExperience.guide_id}
+                            onChange={(e) => setEditExperience({...editExperience, guide_id: e.target.value})}
+                            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                          >
+                            {displayGuides.map((guide) => (
+                              <option key={guide.id} value={guide.id}>
+                                {guide.full_name}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <div className="text-gray-500">{experience.profiles.full_name}</div>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-gray-500">${experience.price}</div>
+                        {editingExperienceId === experience.id ? (
+                          <div className="flex items-center">
+                            <span className="text-gray-500 mr-1">$</span>
+                            <input
+                              type="number"
+                              value={editExperience.price}
+                              onChange={(e) => setEditExperience({...editExperience, price: parseFloat(e.target.value)})}
+                              className="block w-20 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                              min="0"
+                              step="0.01"
+                            />
+                          </div>
+                        ) : (
+                          <div className="text-gray-500">${experience.price}</div>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-gray-500">
-                          {experience.available_spots} / {experience.max_spots} spots
+                        {editingExperienceId === experience.id ? (
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="number"
+                              value={editExperience.available_spots}
+                              onChange={(e) => setEditExperience({...editExperience, available_spots: parseInt(e.target.value)})}
+                              className="block w-16 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                              min="0"
+                            />
+                            <span className="text-gray-500">/</span>
+                            <input
+                              type="number"
+                              value={editExperience.max_spots}
+                              onChange={(e) => setEditExperience({...editExperience, max_spots: parseInt(e.target.value)})}
+                              className="block w-16 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                              min="1"
+                            />
+                          </div>
+                        ) : (
+                          <div className="text-gray-500">
+                            {experience.available_spots} / {experience.max_spots} spots
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <div className="flex justify-end space-x-2">
+                          {editingExperienceId === experience.id ? (
+                            <button
+                              onClick={() => handleSaveExperienceEdit(experience.id)}
+                              className="text-green-600 hover:text-green-900"
+                            >
+                              <Save className="h-5 w-5" />
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleEditExperience(experience)}
+                              className="text-blue-600 hover:text-blue-900"
+                            >
+                              <Edit className="h-5 w-5" />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleDeleteExperience(experience.id)}
+                            className="text-red-600 hover:text-red-900"
+                          >
+                            <Trash2 className="h-5 w-5" />
+                          </button>
                         </div>
                       </td>
                     </tr>

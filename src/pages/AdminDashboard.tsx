@@ -3,7 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
 import { 
-  Users, Map, User, AlertCircle, Check, X, Plus, Trash2 
+  Users, Map, User, AlertCircle, Check, X, Plus, Trash2, Edit, Save 
 } from 'lucide-react';
 
 interface TerritoryManager {
@@ -30,6 +30,7 @@ const AdminDashboard: React.FC = () => {
   const [territories, setTerritories] = useState<Territory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   
   const [showAddManagerForm, setShowAddManagerForm] = useState(false);
   const [showAddTerritoryForm, setShowAddTerritoryForm] = useState(false);
@@ -47,6 +48,26 @@ const AdminDashboard: React.FC = () => {
     name: '',
     description: '',
     imageUrl: ''
+  });
+
+  // Editing states
+  const [editingManagerId, setEditingManagerId] = useState<string | null>(null);
+  const [editingTerritoryId, setEditingTerritoryId] = useState<string | null>(null);
+  const [editManager, setEditManager] = useState<{
+    full_name: string;
+    territory_id: string | null;
+  }>({
+    full_name: '',
+    territory_id: null
+  });
+  const [editTerritory, setEditTerritory] = useState<{
+    name: string;
+    description: string;
+    image_url: string;
+  }>({
+    name: '',
+    description: '',
+    image_url: ''
   });
 
   const fetchData = async () => {
@@ -243,9 +264,120 @@ const AdminDashboard: React.FC = () => {
       
       // Refresh data to ensure we have the latest state
       fetchData();
+      
+      setSuccessMessage('Region manager removed successfully');
+      setTimeout(() => {
+        setSuccessMessage(null);
+      }, 3000);
     } catch (error) {
       console.error('Error removing region manager:', error);
       setError('Failed to remove region manager. Please try again.');
+    }
+  };
+
+  const handleEditManager = (manager: TerritoryManager) => {
+    setEditingManagerId(manager.id);
+    setEditManager({
+      full_name: manager.full_name,
+      territory_id: manager.territory_id
+    });
+  };
+
+  const handleSaveManagerEdit = async (managerId: string) => {
+    try {
+      setError(null);
+      
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          full_name: editManager.full_name,
+          territory_id: editManager.territory_id
+        })
+        .eq('id', managerId);
+      
+      if (error) throw error;
+      
+      // Update local state
+      setTerritoryManagers(territoryManagers.map(manager => 
+        manager.id === managerId 
+          ? {
+              ...manager,
+              full_name: editManager.full_name,
+              territory_id: editManager.territory_id,
+              territories: editManager.territory_id 
+                ? territories.find(t => t.id === editManager.territory_id) 
+                  ? { name: territories.find(t => t.id === editManager.territory_id)!.name } 
+                  : null 
+                : null
+            }
+          : manager
+      ));
+      
+      setEditingManagerId(null);
+      setSuccessMessage('Region manager updated successfully');
+      setTimeout(() => {
+        setSuccessMessage(null);
+      }, 3000);
+    } catch (error) {
+      console.error('Error updating region manager:', error);
+      setError('Failed to update region manager. Please try again.');
+    }
+  };
+
+  const handleEditTerritory = (territory: Territory) => {
+    setEditingTerritoryId(territory.id);
+    setEditTerritory({
+      name: territory.name,
+      description: territory.description,
+      image_url: territory.image_url
+    });
+  };
+
+  const handleSaveTerritoryEdit = async (territoryId: string) => {
+    try {
+      setError(null);
+      
+      const { error } = await supabase
+        .from('territories')
+        .update({
+          name: editTerritory.name,
+          description: editTerritory.description,
+          image_url: editTerritory.image_url
+        })
+        .eq('id', territoryId);
+      
+      if (error) throw error;
+      
+      // Update local state
+      setTerritories(territories.map(territory => 
+        territory.id === territoryId 
+          ? {
+              ...territory,
+              name: editTerritory.name,
+              description: editTerritory.description,
+              image_url: editTerritory.image_url
+            }
+          : territory
+      ));
+      
+      // Also update any territory managers that reference this territory
+      setTerritoryManagers(territoryManagers.map(manager => 
+        manager.territory_id === territoryId 
+          ? {
+              ...manager,
+              territories: { name: editTerritory.name }
+            }
+          : manager
+      ));
+      
+      setEditingTerritoryId(null);
+      setSuccessMessage('Region updated successfully');
+      setTimeout(() => {
+        setSuccessMessage(null);
+      }, 3000);
+    } catch (error) {
+      console.error('Error updating region:', error);
+      setError('Failed to update region. Please try again.');
     }
   };
 
@@ -291,6 +423,13 @@ const AdminDashboard: React.FC = () => {
       {error && (
         <div className="bg-red-50 text-red-700 p-4 rounded-lg mb-6">
           {error}
+        </div>
+      )}
+      
+      {successMessage && (
+        <div className="bg-green-50 text-green-700 p-4 rounded-lg mb-6 flex items-start">
+          <Check className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />
+          <p>{successMessage}</p>
         </div>
       )}
       
@@ -340,29 +479,70 @@ const AdminDashboard: React.FC = () => {
                   {displayManagers.map((manager) => (
                     <tr key={manager.id}>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="font-medium text-gray-900">{manager.full_name}</div>
+                        {editingManagerId === manager.id ? (
+                          <input
+                            type="text"
+                            value={editManager.full_name}
+                            onChange={(e) => setEditManager({...editManager, full_name: e.target.value})}
+                            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                          />
+                        ) : (
+                          <div className="font-medium text-gray-900">{manager.full_name}</div>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-gray-500">{manager.email}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {manager.territories ? (
-                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                            {manager.territories.name}
-                          </span>
+                        {editingManagerId === manager.id ? (
+                          <select
+                            value={editManager.territory_id || ''}
+                            onChange={(e) => setEditManager({...editManager, territory_id: e.target.value || null})}
+                            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                          >
+                            <option value="">-- Not assigned --</option>
+                            {displayTerritories.map((territory) => (
+                              <option key={territory.id} value={territory.id}>
+                                {territory.name}
+                              </option>
+                            ))}
+                          </select>
                         ) : (
-                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
-                            Not assigned
-                          </span>
+                          manager.territories ? (
+                            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                              {manager.territories.name}
+                            </span>
+                          ) : (
+                            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                              Not assigned
+                            </span>
+                          )
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button
-                          onClick={() => handleRemoveManager(manager.id)}
-                          className="text-red-600 hover:text-red-900"
-                        >
-                          <Trash2 className="h-5 w-5" />
-                        </button>
+                        <div className="flex justify-end space-x-2">
+                          {editingManagerId === manager.id ? (
+                            <button
+                              onClick={() => handleSaveManagerEdit(manager.id)}
+                              className="text-green-600 hover:text-green-900"
+                            >
+                              <Save className="h-5 w-5" />
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleEditManager(manager)}
+                              className="text-blue-600 hover:text-blue-900"
+                            >
+                              <Edit className="h-5 w-5" />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleRemoveManager(manager.id)}
+                            className="text-red-600 hover:text-red-900"
+                          >
+                            <Trash2 className="h-5 w-5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -392,17 +572,72 @@ const AdminDashboard: React.FC = () => {
             <div className="p-6 grid grid-cols-1 gap-4">
               {displayTerritories.map((territory) => (
                 <div key={territory.id} className="border border-gray-200 rounded-lg p-4">
-                  <div className="flex items-start">
-                    <img 
-                      src={territory.image_url} 
-                      alt={territory.name} 
-                      className="h-16 w-16 object-cover rounded-md mr-4"
-                    />
-                    <div>
-                      <h3 className="font-bold text-lg">{territory.name}</h3>
-                      <p className="text-gray-600 text-sm line-clamp-2">{territory.description}</p>
+                  {editingTerritoryId === territory.id ? (
+                    <div className="space-y-4">
+                      <div className="flex items-start">
+                        <div className="w-full">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Name
+                          </label>
+                          <input
+                            type="text"
+                            value={editTerritory.name}
+                            onChange={(e) => setEditTerritory({...editTerritory, name: e.target.value})}
+                            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Description
+                        </label>
+                        <textarea
+                          value={editTerritory.description}
+                          onChange={(e) => setEditTerritory({...editTerritory, description: e.target.value})}
+                          rows={3}
+                          className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Image URL
+                        </label>
+                        <input
+                          type="url"
+                          value={editTerritory.image_url}
+                          onChange={(e) => setEditTerritory({...editTerritory, image_url: e.target.value})}
+                          className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                        />
+                      </div>
+                      <div className="flex justify-end">
+                        <button
+                          onClick={() => handleSaveTerritoryEdit(territory.id)}
+                          className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md flex items-center"
+                        >
+                          <Save className="h-4 w-4 mr-1" />
+                          Save
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="flex items-start">
+                      <img 
+                        src={territory.image_url} 
+                        alt={territory.name} 
+                        className="h-16 w-16 object-cover rounded-md mr-4"
+                      />
+                      <div className="flex-1">
+                        <h3 className="font-bold text-lg">{territory.name}</h3>
+                        <p className="text-gray-600 text-sm line-clamp-2">{territory.description}</p>
+                      </div>
+                      <button
+                        onClick={() => handleEditTerritory(territory)}
+                        className="text-blue-600 hover:text-blue-900 ml-2"
+                      >
+                        <Edit className="h-5 w-5" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
