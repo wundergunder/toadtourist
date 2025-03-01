@@ -49,44 +49,44 @@ const AdminDashboard: React.FC = () => {
     imageUrl: ''
   });
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setIsLoading(true);
-        
-        // Fetch territory managers
-        const { data: managersData, error: managersError } = await supabase
-          .from('profiles')
-          .select(`
-            id,
-            email,
-            full_name,
-            territory_id,
-            territories (
-              name
-            )
-          `)
-          .eq('role', 'territory_manager');
-        
-        if (managersError) throw managersError;
-        
-        // Fetch territories
-        const { data: territoriesData, error: territoriesError } = await supabase
-          .from('territories')
-          .select('*');
-        
-        if (territoriesError) throw territoriesError;
-        
-        setTerritoryManagers(managersData || []);
-        setTerritories(territoriesData || []);
-      } catch (error) {
-        console.error('Error fetching admin data:', error);
-        setError('Failed to load data. Please try again later.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const fetchData = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Fetch territory managers
+      const { data: managersData, error: managersError } = await supabase
+        .from('profiles')
+        .select(`
+          id,
+          email,
+          full_name,
+          territory_id,
+          territories (
+            name
+          )
+        `)
+        .eq('role', 'territory_manager');
+      
+      if (managersError) throw managersError;
+      
+      // Fetch territories
+      const { data: territoriesData, error: territoriesError } = await supabase
+        .from('territories')
+        .select('*');
+      
+      if (territoriesError) throw territoriesError;
+      
+      setTerritoryManagers(managersData || []);
+      setTerritories(territoriesData || []);
+    } catch (error) {
+      console.error('Error fetching admin data:', error);
+      setError('Failed to load data. Please try again later.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
+  useEffect(() => {
     if (user && profile?.role === 'admin') {
       fetchData();
     }
@@ -223,17 +223,26 @@ const AdminDashboard: React.FC = () => {
       return;
     }
     
+    setError(null);
+    
     try {
-      // Delete profile
-      const { error: profileError } = await supabase
+      // Since we don't have admin privileges, we'll update the profile instead of deleting it
+      // First, update the profile to remove territory assignment and change role
+      const { error: updateError } = await supabase
         .from('profiles')
-        .delete()
+        .update({ 
+          territory_id: null,
+          role: 'tourist' // Demote to regular tourist
+        })
         .eq('id', managerId);
       
-      if (profileError) throw profileError;
+      if (updateError) throw updateError;
       
       // Update local state
       setTerritoryManagers(territoryManagers.filter(manager => manager.id !== managerId));
+      
+      // Refresh data to ensure we have the latest state
+      fetchData();
     } catch (error) {
       console.error('Error removing region manager:', error);
       setError('Failed to remove region manager. Please try again.');
@@ -279,13 +288,15 @@ const AdminDashboard: React.FC = () => {
     <div>
       <h1 className="text-3xl font-bold mb-6">Admin Dashboard</h1>
       
+      {error && (
+        <div className="bg-red-50 text-red-700 p-4 rounded-lg mb-6">
+          {error}
+        </div>
+      )}
+      
       {isLoading ? (
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500"></div>
-        </div>
-      ) : error ? (
-        <div className="bg-red-50 text-red-700 p-4 rounded-lg mb-6">
-          {error}
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

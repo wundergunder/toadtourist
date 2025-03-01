@@ -3,7 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
 import { 
-  Users, Map, User, AlertCircle, Check, X, Plus, Trash2, Calendar 
+  Users, Map, User, AlertCircle, Check, X, Plus, Trash2, Calendar, Image, DollarSign, Clock 
 } from 'lucide-react';
 
 interface TourGuide {
@@ -16,6 +16,7 @@ interface Experience {
   id: string;
   title: string;
   price: number;
+  duration: number;
   max_spots: number;
   available_spots: number;
   guide_id: string;
@@ -41,6 +42,7 @@ const TerritoryManagement: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   
   const [showAddGuideForm, setShowAddGuideForm] = useState(false);
+  const [showAddExperienceForm, setShowAddExperienceForm] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
   
@@ -48,6 +50,16 @@ const TerritoryManagement: React.FC = () => {
     email: '',
     fullName: '',
     password: ''
+  });
+
+  const [newExperience, setNewExperience] = useState({
+    title: '',
+    description: '',
+    price: 0,
+    duration: 1,
+    maxSpots: 10,
+    guideId: '',
+    imageUrls: ['']
   });
 
   useEffect(() => {
@@ -84,6 +96,7 @@ const TerritoryManagement: React.FC = () => {
             id,
             title,
             price,
+            duration,
             max_spots,
             available_spots,
             guide_id,
@@ -175,19 +188,99 @@ const TerritoryManagement: React.FC = () => {
     }
   };
 
+  const handleAddExperience = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError(null);
+    setFormSuccess(null);
+    
+    if (!profile?.territory_id) {
+      setFormError('You are not assigned to a region');
+      return;
+    }
+    
+    const { title, description, price, duration, maxSpots, guideId, imageUrls } = newExperience;
+    
+    if (!title || !description || price <= 0 || duration <= 0 || maxSpots <= 0 || !guideId || !imageUrls[0]) {
+      setFormError('Please fill in all required fields with valid values');
+      return;
+    }
+    
+    try {
+      // Generate ID from title
+      const id = title.toLowerCase().replace(/\s+/g, '-');
+      
+      // Create experience
+      const { data, error } = await supabase
+        .from('experiences')
+        .insert({
+          id,
+          title,
+          description,
+          price,
+          duration,
+          max_spots: maxSpots,
+          available_spots: maxSpots,
+          image_urls: imageUrls.filter(url => url.trim() !== ''),
+          territory_id: profile.territory_id,
+          guide_id: guideId
+        })
+        .select(`
+          id,
+          title,
+          price,
+          duration,
+          max_spots,
+          available_spots,
+          guide_id,
+          profiles:guide_id (
+            full_name
+          )
+        `)
+        .single();
+      
+      if (error) throw error;
+      
+      // Add to local state
+      if (data) {
+        setExperiences([...experiences, data]);
+      }
+      
+      setFormSuccess('Experience added successfully');
+      setNewExperience({
+        title: '',
+        description: '',
+        price: 0,
+        duration: 1,
+        maxSpots: 10,
+        guideId: '',
+        imageUrls: ['']
+      });
+      setTimeout(() => {
+        setShowAddExperienceForm(false);
+        setFormSuccess(null);
+      }, 2000);
+    } catch (error) {
+      console.error('Error adding experience:', error);
+      setFormError('Failed to add experience. Please try again.');
+    }
+  };
+
   const handleRemoveGuide = async (guideId: string) => {
     if (!confirm('Are you sure you want to remove this tour guide?')) {
       return;
     }
     
     try {
-      // Delete profile
-      const { error: profileError } = await supabase
+      // Update the profile to remove territory assignment and change role
+      const { error: updateError } = await supabase
         .from('profiles')
-        .delete()
+        .update({ 
+          territory_id: null,
+          role: 'tourist' // Demote to regular tourist
+        })
         .eq('id', guideId);
       
-      if (profileError) throw profileError;
+      if (updateError) throw updateError;
       
       // Update local state
       setTourGuides(tourGuides.filter(guide => guide.id !== guideId));
@@ -195,6 +288,31 @@ const TerritoryManagement: React.FC = () => {
       console.error('Error removing tour guide:', error);
       setError('Failed to remove tour guide. Please try again.');
     }
+  };
+
+  const handleAddImageUrl = () => {
+    setNewExperience({
+      ...newExperience,
+      imageUrls: [...newExperience.imageUrls, '']
+    });
+  };
+
+  const handleRemoveImageUrl = (index: number) => {
+    const updatedUrls = [...newExperience.imageUrls];
+    updatedUrls.splice(index, 1);
+    setNewExperience({
+      ...newExperience,
+      imageUrls: updatedUrls
+    });
+  };
+
+  const handleImageUrlChange = (index: number, value: string) => {
+    const updatedUrls = [...newExperience.imageUrls];
+    updatedUrls[index] = value;
+    setNewExperience({
+      ...newExperience,
+      imageUrls: updatedUrls
+    });
   };
 
   // If not territory manager, redirect to home
@@ -206,6 +324,11 @@ const TerritoryManagement: React.FC = () => {
   if (!user) {
     return <Navigate to="/login" />;
   }
+
+  const formatDate = (dateString: string) => {
+    const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'long', day: 'numeric' };
+    return new Date(dateString).toLocaleDateString(undefined, options);
+  };
 
   // Placeholder data if none in database
   const placeholderTerritory = {
@@ -233,6 +356,7 @@ const TerritoryManagement: React.FC = () => {
       id: 'jungle-kayaking',
       title: 'Jungle Kayaking Adventure',
       price: 45,
+      duration: 3,
       max_spots: 12,
       available_spots: 8,
       guide_id: 'guide-1',
@@ -244,6 +368,7 @@ const TerritoryManagement: React.FC = () => {
       id: 'mayan-cooking',
       title: 'Mayan Cooking Class',
       price: 35,
+      duration: 4,
       max_spots: 8,
       available_spots: 4,
       guide_id: 'guide-2',
@@ -262,13 +387,15 @@ const TerritoryManagement: React.FC = () => {
       <h1 className="text-3xl font-bold mb-2">Region Management</h1>
       <h2 className="text-xl text-gray-600 mb-6">{displayTerritory.name}</h2>
       
+      {error && (
+        <div className="bg-red-50 text-red-700 p-4 rounded-lg mb-6">
+          {error}
+        </div>
+      )}
+      
       {isLoading ? (
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500"></div>
-        </div>
-      ) : error ? (
-        <div className="bg-red-50 text-red-700 p-4 rounded-lg mb-6">
-          {error}
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -332,9 +459,18 @@ const TerritoryManagement: React.FC = () => {
           {/* Experiences Section */}
           <div className="bg-white rounded-xl shadow-md overflow-hidden">
             <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center">
-                <Calendar className="h-6 w-6 text-green-600 mr-2" />
-                <h2 className="text-xl font-bold">Experiences</h2>
+              <div className="flex justify-between items-center">
+                <div className="flex items-center">
+                  <Calendar className="h-6 w-6 text-green-600 mr-2" />
+                  <h2 className="text-xl font-bold">Experiences</h2>
+                </div>
+                <button
+                  onClick={() => setShowAddExperienceForm(true)}
+                  className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md flex items-center"
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Experience
+                </button>
               </div>
             </div>
             
@@ -457,6 +593,199 @@ const TerritoryManagement: React.FC = () => {
                     className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md"
                   >
                     Add Guide
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+      
+      {/* Add Experience Modal */}
+      {showAddExperienceForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-xl font-bold mb-4">Add New Experience</h2>
+            
+            {formSuccess ? (
+              <div className="bg-green-50 text-green-700 p-4 rounded-lg mb-4 flex items-start">
+                <Check className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />
+                <p>{formSuccess}</p>
+              </div>
+            ) : (
+              <form onSubmit={handleAddExperience}>
+                {formError && (
+                  <div className="bg-red-50 text-red-700 p-3 rounded-lg mb-4 flex items-start">
+                    <AlertCircle className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />
+                    <p>{formError}</p>
+                  </div>
+                )}
+                
+                <div className="mb-4">
+                  <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
+                    Experience Title *
+                  </label>
+                  <input
+                    id="title"
+                    type="text"
+                    value={newExperience.title}
+                    onChange={(e) => setNewExperience({...newExperience, title: e.target.value})}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    required
+                  />
+                </div>
+                
+                <div className="mb-4">
+                  <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
+                    Description *
+                  </label>
+                  <textarea
+                    id="description"
+                    rows={4}
+                    value={newExperience.description}
+                    onChange={(e) => setNewExperience({...newExperience, description: e.target.value})}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    required
+                  />
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                  <div>
+                    <label htmlFor="price" className="block text-sm font-medium text-gray-700 mb-1">
+                      Price (USD) *
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <DollarSign className="h-5 w-5 text-gray-400" />
+                      </div>
+                      <input
+                        id="price"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={newExperience.price}
+                        onChange={(e) => setNewExperience({...newExperience, price: parseFloat(e.target.value)})}
+                        className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                        required
+                      />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="duration" className="block text-sm font-medium text-gray-700 mb-1">
+                      Duration (hours) *
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Clock className="h-5 w-5 text-gray-400" />
+                      </div>
+                      <input
+                        id="duration"
+                        type="number"
+                        min="0.5"
+                        step="0.5"
+                        value={newExperience.duration}
+                        onChange={(e) => setNewExperience({...newExperience, duration: parseFloat(e.target.value)})}
+                        className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                        required
+                      />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="maxSpots" className="block text-sm font-medium text-gray-700 mb-1">
+                      Max Spots *
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Users className="h-5 w-5 text-gray-400" />
+                      </div>
+                      <input
+                        id="maxSpots"
+                        type="number"
+                        min="1"
+                        value={newExperience.maxSpots}
+                        onChange={(e) => setNewExperience({...newExperience, maxSpots: parseInt(e.target.value)})}
+                        className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                        required
+                      />
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="mb-4">
+                  <label htmlFor="guideId" className="block text-sm font-medium text-gray-700 mb-1">
+                    Assign Guide *
+                  </label>
+                  <select
+                    id="guideId"
+                    value={newExperience.guideId}
+                    onChange={(e) => setNewExperience({...newExperience, guideId: e.target.value})}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    required
+                  >
+                    <option value="">-- Select Guide --</option>
+                    {displayGuides.map((guide) => (
+                      <option key={guide.id} value={guide.id}>
+                        {guide.full_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Image URLs *
+                  </label>
+                  {newExperience.imageUrls.map((url, index) => (
+                    <div key={index} className="flex items-center mb-2">
+                      <div className="flex-grow mr-2 relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <Image className="h-5 w-5 text-gray-400" />
+                        </div>
+                        <input
+                          type="url"
+                          value={url}
+                          onChange={(e) => handleImageUrlChange(index, e.target.value)}
+                          placeholder="https://example.com/image.jpg"
+                          className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                          required={index === 0}
+                        />
+                      </div>
+                      {index > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveImageUrl(index)}
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          <X className="h-5 w-5" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={handleAddImageUrl}
+                    className="mt-2 inline-flex items-center text-sm font-medium text-green-600 hover:text-green-700"
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Another Image
+                  </button>
+                </div>
+                
+                <div className="flex justify-end space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddExperienceForm(false)}
+                    className="bg-white border border-gray-300 text-gray-700 font-medium py-2 px-4 rounded-md hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md"
+                  >
+                    Create Experience
                   </button>
                 </div>
               </form>
