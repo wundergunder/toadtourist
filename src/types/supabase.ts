@@ -40,6 +40,8 @@ export interface Database {
           role: 'admin' | 'territory_manager' | 'tour_guide' | 'tourist'
           territory_id: string | null
           created_at: string
+          avatar_url: string | null
+          bio: string | null
         }
         Insert: {
           id: string
@@ -48,6 +50,8 @@ export interface Database {
           role: 'admin' | 'territory_manager' | 'tour_guide' | 'tourist'
           territory_id?: string | null
           created_at?: string
+          avatar_url?: string | null
+          bio?: string | null
         }
         Update: {
           id?: string
@@ -56,6 +60,8 @@ export interface Database {
           role?: 'admin' | 'territory_manager' | 'tour_guide' | 'tourist'
           territory_id?: string | null
           created_at?: string
+          avatar_url?: string | null
+          bio?: string | null
         }
       }
       experiences: {

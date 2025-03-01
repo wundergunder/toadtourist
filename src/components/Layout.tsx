@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Outlet, Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { LogOut, Menu, X } from 'lucide-react';
+import { LogOut, Menu, X, User, Edit } from 'lucide-react';
 
 const ToadLogo = () => (
   <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -19,12 +19,39 @@ const ToadLogo = () => (
 const Layout: React.FC = () => {
   const { user, profile, signOut } = useAuthStore();
   const navigate = useNavigate();
-  const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
 
   const handleSignOut = async () => {
     await signOut();
     navigate('/login');
   };
+
+  const handleProfileClick = () => {
+    setIsProfileMenuOpen(!isProfileMenuOpen);
+  };
+
+  const handleEditAvatar = () => {
+    navigate('/profile');
+    setIsProfileMenuOpen(false);
+  };
+
+  const isTourist = profile?.role === 'tourist';
+
+  // Close profile menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
+        setIsProfileMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   return (
     <div className="min-h-screen flex flex-col bg-green-50">
@@ -37,7 +64,9 @@ const Layout: React.FC = () => {
           
           <div className="hidden md:flex items-center space-x-6">
             <Link to="/" className="hover:text-green-200">Home</Link>
-            <Link to="/regions" className="hover:text-green-200">Regions</Link>
+            {isTourist && (
+              <Link to="/regions" className="hover:text-green-200">Regions</Link>
+            )}
             
             {user ? (
               <>
@@ -50,14 +79,49 @@ const Layout: React.FC = () => {
                 {profile?.role === 'tour_guide' && (
                   <Link to="/guide-dashboard" className="hover:text-green-200">Guide Dashboard</Link>
                 )}
-                <Link to="/bookings" className="hover:text-green-200">My Bookings</Link>
-                <button 
-                  onClick={handleSignOut}
-                  className="flex items-center space-x-1 hover:text-green-200"
-                >
-                  <LogOut className="h-4 w-4" />
-                  <span>Sign Out</span>
-                </button>
+                {isTourist && (
+                  <Link to="/bookings" className="hover:text-green-200">My Bookings</Link>
+                )}
+                <div className="flex items-center space-x-4 relative" ref={profileMenuRef}>
+                  <button 
+                    onClick={handleProfileClick}
+                    className="flex items-center space-x-1 hover:text-green-200"
+                  >
+                    {profile?.avatar_url ? (
+                      <img 
+                        src={profile.avatar_url} 
+                        alt={profile.full_name} 
+                        className="h-8 w-8 rounded-full object-cover border-2 border-white"
+                      />
+                    ) : (
+                      <div className="h-8 w-8 rounded-full bg-green-500 flex items-center justify-center text-white font-bold">
+                        {profile?.full_name?.charAt(0) || user.email?.charAt(0) || 'U'}
+                      </div>
+                    )}
+                  </button>
+                  
+                  {/* Profile dropdown menu */}
+                  {isProfileMenuOpen && (
+                    <div className="absolute right-0 top-10 mt-2 w-48 bg-white rounded-md shadow-lg z-10">
+                      <div className="py-1">
+                        <button
+                          onClick={handleEditAvatar}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                        >
+                          <Edit className="h-4 w-4 mr-2" />
+                          Edit Profile
+                        </button>
+                        <button
+                          onClick={handleSignOut}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                        >
+                          <LogOut className="h-4 w-4 mr-2" />
+                          Sign Out
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </>
             ) : (
               <>
@@ -80,7 +144,9 @@ const Layout: React.FC = () => {
           <div className="md:hidden bg-green-700 px-4 py-2">
             <div className="flex flex-col space-y-3">
               <Link to="/" className="text-white hover:text-green-200">Home</Link>
-              <Link to="/regions" className="text-white hover:text-green-200">Regions</Link>
+              {isTourist && (
+                <Link to="/regions" className="text-white hover:text-green-200">Regions</Link>
+              )}
               
               {user ? (
                 <>
@@ -93,7 +159,19 @@ const Layout: React.FC = () => {
                   {profile?.role === 'tour_guide' && (
                     <Link to="/guide-dashboard" className="text-white hover:text-green-200">Guide Dashboard</Link>
                   )}
-                  <Link to="/bookings" className="text-white hover:text-green-200">My Bookings</Link>
+                  {isTourist && (
+                    <Link to="/bookings" className="text-white hover:text-green-200">My Bookings</Link>
+                  )}
+                  <button 
+                    onClick={() => {
+                      navigate('/profile');
+                      setIsMenuOpen(false);
+                    }}
+                    className="flex items-center space-x-2 text-white hover:text-green-200"
+                  >
+                    <Edit className="h-4 w-4" />
+                    <span>Edit Profile</span>
+                  </button>
                   <button 
                     onClick={handleSignOut}
                     className="flex items-center space-x-1 text-white hover:text-green-200"

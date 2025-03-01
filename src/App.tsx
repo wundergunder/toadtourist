@@ -16,6 +16,7 @@ import TerritoryManagement from './pages/TerritoryManagement';
 import EditExperience from './pages/EditExperience';
 import EditGuide from './pages/EditGuide';
 import GuideDashboard from './pages/GuideDashboard';
+import UserProfile from './pages/UserProfile';
 
 // Protected Route Component
 interface ProtectedRouteProps {
@@ -57,6 +58,12 @@ function App() {
           <Route path="regions" element={<Territories />} />
           <Route path="territories/:id" element={<TerritoryDetail />} />
           <Route path="experiences/:id" element={<ExperienceDetail />} />
+          
+          <Route path="profile" element={
+            <ProtectedRoute>
+              <UserProfile />
+            </ProtectedRoute>
+          } />
           
           <Route path="bookings" element={
             <ProtectedRoute>

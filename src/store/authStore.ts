@@ -8,6 +8,8 @@ interface Profile {
   full_name: string;
   role: 'admin' | 'territory_manager' | 'tour_guide' | 'tourist';
   territory_id: string | null;
+  avatar_url: string | null;
+  bio: string | null;
 }
 
 interface AuthState {
@@ -19,9 +21,11 @@ interface AuthState {
   signUp: (email: string, password: string, fullName: string, role: 'tourist') => Promise<void>;
   signOut: () => Promise<void>;
   loadUser: () => Promise<void>;
+  updateProfile: (updates: Partial<Profile>) => Promise<void>;
+  updateAvatar: (avatarUrl: string) => Promise<void>;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   profile: null,
   isLoading: false,
@@ -137,6 +141,8 @@ export const useAuthStore = create<AuthState>((set) => ({
               full_name: fullName,
               role,
               territory_id: null,
+              avatar_url: null,
+              bio: null
             },
             isLoading: false 
           });
@@ -222,6 +228,60 @@ export const useAuthStore = create<AuthState>((set) => ({
         user: null,
         profile: null,
         error: error instanceof Error ? error.message : 'An error occurred loading user', 
+        isLoading: false 
+      });
+    }
+  },
+
+  updateProfile: async (updates) => {
+    try {
+      const { user, profile } = get();
+      if (!user || !profile) throw new Error('You must be logged in to update your profile');
+
+      set({ isLoading: true, error: null });
+
+      const { error } = await supabase
+        .from('profiles')
+        .update(updates)
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      // Update local state
+      set({ 
+        profile: { ...profile, ...updates },
+        isLoading: false 
+      });
+    } catch (error) {
+      set({ 
+        error: error instanceof Error ? error.message : 'An error occurred updating profile', 
+        isLoading: false 
+      });
+    }
+  },
+
+  updateAvatar: async (avatarUrl) => {
+    try {
+      const { user, profile } = get();
+      if (!user || !profile) throw new Error('You must be logged in to update your avatar');
+
+      set({ isLoading: true, error: null });
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({ avatar_url: avatarUrl })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      // Update local state
+      set({ 
+        profile: { ...profile, avatar_url: avatarUrl },
+        isLoading: false 
+      });
+    } catch (error) {
+      set({ 
+        error: error instanceof Error ? error.message : 'An error occurred updating avatar', 
         isLoading: false 
       });
     }
