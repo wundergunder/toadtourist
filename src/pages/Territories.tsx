@@ -28,8 +28,8 @@ const Territories: React.FC = () => {
         
         setTerritories(data || []);
       } catch (error) {
-        console.error('Error fetching territories:', error);
-        setError('Failed to load territories. Please try again later.');
+        console.error('Error fetching regions:', error);
+        setError('Failed to load regions. Please try again later.');
       } finally {
         setIsLoading(false);
       }
@@ -59,7 +59,7 @@ const Territories: React.FC = () => {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Explore Territories</h1>
+        <h1 className="text-3xl font-bold mb-2">Explore Regions</h1>
         <p className="text-gray-600">Discover unique destinations and the experiences they offer</p>
       </div>
 
@@ -70,7 +70,7 @@ const Territories: React.FC = () => {
         </div>
         <input
           type="text"
-          placeholder="Search territories..."
+          placeholder="Search regions..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"

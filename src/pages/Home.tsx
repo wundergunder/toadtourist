@@ -41,10 +41,10 @@ const Home: React.FC = () => {
               <p className="text-xl md:text-2xl mb-8">Discover unique experiences in Rio Dulce, Guatemala with local guides who know the area best.</p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <Link 
-                  to="/territories" 
+                  to="/regions" 
                   className="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg text-center transition-colors"
                 >
-                  Explore Territories
+                  Explore Regions
                 </Link>
                 {!user && (
                   <Link 
@@ -60,7 +60,7 @@ const Home: React.FC = () => {
         </div>
       </section>
 
-      {/* Featured Territory */}
+      {/* Featured Region */}
       <section className="bg-white rounded-xl shadow-md overflow-hidden">
         <div className="md:flex">
           <div className="md:w-1/2">
@@ -73,7 +73,7 @@ const Home: React.FC = () => {
           <div className="md:w-1/2 p-8">
             <div className="flex items-center mb-2">
               <MapPin className="h-5 w-5 text-green-600 mr-2" />
-              <span className="text-sm text-green-600 font-medium">Featured Territory</span>
+              <span className="text-sm text-green-600 font-medium">Featured Region</span>
             </div>
             <h2 className="text-3xl font-bold mb-4">Rio Dulce, Guatemala</h2>
             <p className="text-gray-600 mb-6">
@@ -216,9 +216,9 @@ const Home: React.FC = () => {
             <div className="bg-green-100 h-16 w-16 rounded-full flex items-center justify-center mx-auto mb-4">
               <MapPin className="h-8 w-8 text-green-600" />
             </div>
-            <h3 className="text-xl font-bold mb-2">Choose a Territory</h3>
+            <h3 className="text-xl font-bold mb-2">Choose a Region</h3>
             <p className="text-gray-600">
-              Browse our curated territories and find the perfect destination for your adventure.
+              Browse our curated regions and find the perfect destination for your adventure.
             </p>
           </div>
           <div className="text-center">
@@ -257,7 +257,7 @@ const Home: React.FC = () => {
           </Link>
         ) : (
           <Link 
-            to="/territories" 
+            to="/regions" 
             className="inline-block bg-white text-green-700 hover:bg-gray-100 font-bold py-3 px-8 rounded-lg transition-colors"
           >
             Browse Experiences

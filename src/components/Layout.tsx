@@ -37,8 +37,7 @@ const Layout: React.FC = () => {
           
           <div className="hidden md:flex items-center space-x-6">
             <Link to="/" className="hover:text-green-200">Home</Link>
-            <Link to="/territories" className="hover:text-green-200">Territories</Link>
-            <Link to="/experiences" className="hover:text-green-200">Experiences</Link>
+            <Link to="/regions" className="hover:text-green-200">Regions</Link>
             
             {user ? (
               <>
@@ -46,7 +45,7 @@ const Layout: React.FC = () => {
                   <Link to="/admin" className="hover:text-green-200">Admin</Link>
                 )}
                 {profile?.role === 'territory_manager' && (
-                  <Link to="/territory-management" className="hover:text-green-200">Manage Territory</Link>
+                  <Link to="/territory-management" className="hover:text-green-200">Manage Region</Link>
                 )}
                 {profile?.role === 'tour_guide' && (
                   <Link to="/guide-dashboard" className="hover:text-green-200">Guide Dashboard</Link>
@@ -81,8 +80,7 @@ const Layout: React.FC = () => {
           <div className="md:hidden bg-green-700 px-4 py-2">
             <div className="flex flex-col space-y-3">
               <Link to="/" className="text-white hover:text-green-200">Home</Link>
-              <Link to="/territories" className="text-white hover:text-green-200">Territories</Link>
-              <Link to="/experiences" className="text-white hover:text-green-200">Experiences</Link>
+              <Link to="/regions" className="text-white hover:text-green-200">Regions</Link>
               
               {user ? (
                 <>
@@ -90,7 +88,7 @@ const Layout: React.FC = () => {
                     <Link to="/admin" className="text-white hover:text-green-200">Admin</Link>
                   )}
                   {profile?.role === 'territory_manager' && (
-                    <Link to="/territory-management" className="text-white hover:text-green-200">Manage Territory</Link>
+                    <Link to="/territory-management" className="text-white hover:text-green-200">Manage Region</Link>
                   )}
                   {profile?.role === 'tour_guide' && (
                     <Link to="/guide-dashboard" className="text-white hover:text-green-200">Guide Dashboard</Link>

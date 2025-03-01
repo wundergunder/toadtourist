@@ -52,7 +52,8 @@ function App() {
           <Route index element={<Home />} />
           <Route path="login" element={<Login />} />
           <Route path="register" element={<Register />} />
-          <Route path="territories" element={<Territories />} />
+          <Route path="regions" element={<Territories />} />
+          <Route path="experiences" element={<Territories />} />
           <Route path="territories/:id" element={<TerritoryDetail />} />
           <Route path="experiences/:id" element={<ExperienceDetail />} />
           

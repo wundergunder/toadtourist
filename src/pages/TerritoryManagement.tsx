@@ -96,7 +96,7 @@ const TerritoryManagement: React.FC = () => {
         if (experiencesError) throw experiencesError;
         setExperiences(experiencesData || []);
       } catch (error) {
-        console.error('Error fetching territory management data:', error);
+        console.error('Error fetching region management data:', error);
         setError('Failed to load data. Please try again later.');
       } finally {
         setIsLoading(false);
@@ -114,7 +114,7 @@ const TerritoryManagement: React.FC = () => {
     setFormSuccess(null);
     
     if (!profile?.territory_id) {
-      setFormError('You are not assigned to a territory');
+      setFormError('You are not assigned to a region');
       return;
     }
     
@@ -259,7 +259,7 @@ const TerritoryManagement: React.FC = () => {
 
   return (
     <div>
-      <h1 className="text-3xl font-bold mb-2">Territory Management</h1>
+      <h1 className="text-3xl font-bold mb-2">Region Management</h1>
       <h2 className="text-xl text-gray-600 mb-6">{displayTerritory.name}</h2>
       
       {isLoading ? (
@@ -425,7 +425,6 @@ const TerritoryManagement: React.FC = () => {
                     type="email"
                     value={newGuide.email}
                     onChange={(e) => setNewGuide({...newGuide, email: e.target.value})}
-                 onChange={(e) => setNewGuide({...newGuide, email: e.target.value})}
                     className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
                     required
                   />

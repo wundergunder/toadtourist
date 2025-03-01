@@ -109,21 +109,27 @@ const AdminDashboard: React.FC = () => {
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          data: {
+            full_name: fullName,
+            role: 'territory_manager'
+          }
+        }
       });
       
       if (authError) throw authError;
       
       if (authData.user) {
-        // Create profile
+        // Wait for trigger to create profile
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Update profile with territory_id
         const { error: profileError } = await supabase
           .from('profiles')
-          .insert({
-            id: authData.user.id,
-            email,
-            full_name: fullName,
-            role: 'territory_manager',
+          .update({
             territory_id: territoryId || null
-          });
+          })
+          .eq('id', authData.user.id);
         
         if (profileError) throw profileError;
         
@@ -143,7 +149,7 @@ const AdminDashboard: React.FC = () => {
           }
         ]);
         
-        setFormSuccess('Territory manager added successfully');
+        setFormSuccess('Region manager added successfully');
         setNewManager({
           email: '',
           fullName: '',
@@ -156,8 +162,8 @@ const AdminDashboard: React.FC = () => {
         }, 2000);
       }
     } catch (error) {
-      console.error('Error adding territory manager:', error);
-      setFormError('Failed to add territory manager. Please try again.');
+      console.error('Error adding region manager:', error);
+      setFormError('Failed to add region manager. Please try again.');
     }
   };
 
@@ -196,7 +202,7 @@ const AdminDashboard: React.FC = () => {
         setTerritories([...territories, data]);
       }
       
-      setFormSuccess('Territory added successfully');
+      setFormSuccess('Region added successfully');
       setNewTerritory({
         name: '',
         description: '',
@@ -207,13 +213,13 @@ const AdminDashboard: React.FC = () => {
         setFormSuccess(null);
       }, 2000);
     } catch (error) {
-      console.error('Error adding territory:', error);
-      setFormError('Failed to add territory. Please try again.');
+      console.error('Error adding region:', error);
+      setFormError('Failed to add region. Please try again.');
     }
   };
 
   const handleRemoveManager = async (managerId: string) => {
-    if (!confirm('Are you sure you want to remove this territory manager?')) {
+    if (!confirm('Are you sure you want to remove this region manager?')) {
       return;
     }
     
@@ -229,8 +235,8 @@ const AdminDashboard: React.FC = () => {
       // Update local state
       setTerritoryManagers(territoryManagers.filter(manager => manager.id !== managerId));
     } catch (error) {
-      console.error('Error removing territory manager:', error);
-      setError('Failed to remove territory manager. Please try again.');
+      console.error('Error removing region manager:', error);
+      setError('Failed to remove region manager. Please try again.');
     }
   };
 
@@ -289,7 +295,7 @@ const AdminDashboard: React.FC = () => {
               <div className="flex justify-between items-center">
                 <div className="flex items-center">
                   <Users className="h-6 w-6 text-green-600 mr-2" />
-                  <h2 className="text-xl font-bold">Territory Managers</h2>
+                  <h2 className="text-xl font-bold">Region Managers</h2>
                 </div>
                 <button
                   onClick={() => setShowAddManagerForm(true)}
@@ -312,7 +318,7 @@ const AdminDashboard: React.FC = () => {
                       Email
                     </th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Territory
+                      Region
                     </th>
                     <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
@@ -360,14 +366,14 @@ const AdminDashboard: React.FC = () => {
               <div className="flex justify-between items-center">
                 <div className="flex items-center">
                   <Map className="h-6 w-6 text-green-600 mr-2" />
-                  <h2 className="text-xl font-bold">Territories</h2>
+                  <h2 className="text-xl font-bold">Regions</h2>
                 </div>
                 <button
                   onClick={() => setShowAddTerritoryForm(true)}
                   className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md flex items-center"
                 >
                   <Plus className="h-4 w-4 mr-1" />
-                  Add Territory
+                  Add Region
                 </button>
               </div>
             </div>
@@ -397,7 +403,7 @@ const AdminDashboard: React.FC = () => {
       {showAddManagerForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-            <h2 className="text-xl font-bold mb-4">Add Territory Manager</h2>
+            <h2 className="text-xl font-bold mb-4">Add Region Manager</h2>
             
             {formSuccess ? (
               <div className="bg-green-50 text-green-700 p-4 rounded-lg mb-4 flex items-start">
@@ -457,7 +463,7 @@ const AdminDashboard: React.FC = () => {
                 
                 <div className="mb-6">
                   <label htmlFor="territoryId" className="block text-sm font-medium text-gray-700 mb-1">
-                    Assign Territory
+                    Assign Region
                   </label>
                   <select
                     id="territoryId"
@@ -465,7 +471,7 @@ const AdminDashboard: React.FC = () => {
                     onChange={(e) => setNewManager({...newManager, territoryId: e.target.value})}
                     className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
                   >
-                    <option value="">-- Select Territory --</option>
+                    <option value="">-- Select Region --</option>
                     {displayTerritories.map((territory) => (
                       <option key={territory.id} value={territory.id}>
                         {territory.name}
@@ -499,7 +505,7 @@ const AdminDashboard: React.FC = () => {
       {showAddTerritoryForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-            <h2 className="text-xl font-bold mb-4">Add Territory</h2>
+            <h2 className="text-xl font-bold mb-4">Add Region</h2>
             
             {formSuccess ? (
               <div className="bg-green-50 text-green-700 p-4 rounded-lg mb-4 flex items-start">
@@ -517,7 +523,7 @@ const AdminDashboard: React.FC = () => {
                 
                 <div className="mb-4">
                   <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-                    Territory Name *
+                    Region Name *
                   </label>
                   <input
                     id="name"
@@ -570,7 +576,7 @@ const AdminDashboard: React.FC = () => {
                     type="submit"
                     className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md"
                   >
-                    Add Territory
+                    Add Region
                   </button>
                 </div>
               </form>

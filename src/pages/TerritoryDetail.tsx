@@ -55,8 +55,8 @@ const TerritoryDetail: React.FC = () => {
         setTerritory(territoryData);
         setExperiences(experiencesData || []);
       } catch (error) {
-        console.error('Error fetching territory details:', error);
-        setError('Failed to load territory details. Please try again later.');
+        console.error('Error fetching region details:', error);
+        setError('Failed to load region details. Please try again later.');
       } finally {
         setIsLoading(false);
       }
@@ -129,9 +129,9 @@ const TerritoryDetail: React.FC = () => {
         </div>
       ) : (
         <>
-          <Link to="/territories" className="inline-flex items-center text-green-600 hover:text-green-700 mb-6">
+          <Link to="/regions" className="inline-flex items-center text-green-600 hover:text-green-700 mb-6">
             <ArrowLeft className="h-4 w-4 mr-1" />
-            Back to Territories
+            Back to Regions
           </Link>
 
           {/* Territory Header */}
@@ -145,7 +145,7 @@ const TerritoryDetail: React.FC = () => {
             <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
               <div className="flex items-center mb-2">
                 <MapPin className="h-5 w-5 mr-2" />
-                <span className="text-sm font-medium">Territory</span>
+                <span className="text-sm font-medium">Region</span>
               </div>
               <h1 className="text-3xl md:text-4xl font-bold">{displayTerritory.name}</h1>
             </div>
