@@ -14,6 +14,7 @@ import Bookings from './pages/Bookings';
 import AdminDashboard from './pages/AdminDashboard';
 import TerritoryManagement from './pages/TerritoryManagement';
 import EditExperience from './pages/EditExperience';
+import EditGuide from './pages/EditGuide';
 import GuideDashboard from './pages/GuideDashboard';
 
 // Protected Route Component
@@ -78,6 +79,12 @@ function App() {
           <Route path="territory-management/edit-experience/:id" element={
             <ProtectedRoute allowedRoles={['territory_manager']}>
               <EditExperience />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="territory-management/edit-guide/:id" element={
+            <ProtectedRoute allowedRoles={['territory_manager']}>
+              <EditGuide />
             </ProtectedRoute>
           } />
           

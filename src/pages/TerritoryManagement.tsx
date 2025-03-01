@@ -140,37 +140,47 @@ const TerritoryManagement: React.FC = () => {
     }
     
     try {
-      // Create user in auth
+      // First check if the email already exists
+      const { data: existingUser, error: checkError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', email)
+        .maybeSingle();
+      
+      if (checkError) throw checkError;
+      
+      if (existingUser) {
+        setFormError('A user with this email already exists. Please use a different email address.');
+        return;
+      }
+      
+      // Create user in auth with metadata that includes the territory_id
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
-      });
-      
-      if (authError) throw authError;
-      
-      if (authData.user) {
-        // Create profile
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert({
-            id: authData.user.id,
-            email,
+        options: {
+          data: {
             full_name: fullName,
             role: 'tour_guide',
             territory_id: profile.territory_id
-          });
-        
-        if (profileError) throw profileError;
-        
-        // Add to local state
-        setTourGuides([
-          ...tourGuides,
-          {
-            id: authData.user.id,
-            email,
-            full_name: fullName
           }
-        ]);
+        }
+      });
+      
+      if (authError) {
+        if (authError.message.includes('already registered')) {
+          setFormError('A user with this email already exists. Please use a different email address.');
+          return;
+        }
+        throw authError;
+      }
+      
+      if (authData.user) {
+        // Wait for the trigger to create the profile
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Refresh the guide list
+        fetchData();
         
         setFormSuccess('Tour guide added successfully');
         setNewGuide({
@@ -348,12 +358,14 @@ const TerritoryManagement: React.FC = () => {
   }
 
   // Placeholder data if none in database
-  const placeholderTerritory = {
-    id: 'rio-dulce',
-    name: 'Rio Dulce',
-    description: 'A lush river valley in eastern Guatemala, known for its stunning natural beauty, wildlife, and the blend of Mayan and Caribbean cultures.',
-    image_url: 'https://images.unsplash.com/photo-1591604129939-f1efa4d9f7fa?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80'
-  };
+  const placeholderTerritories = [
+    {
+      id: 'rio-dulce',
+      name: 'Rio Dulce',
+      description: 'A lush river valley in eastern Guatemala, known for its stunning natural beauty, wildlife, and the blend of Mayan and Caribbean cultures.',
+      image_url: 'https://images.unsplash.com/photo-1591604129939-f1efa4d9f7fa?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80'
+    }
+  ];
 
   const placeholderGuides = [
     {
@@ -372,11 +384,12 @@ const TerritoryManagement: React.FC = () => {
     {
       id: 'jungle-kayaking',
       title: 'Jungle Kayaking Adventure',
+      description: 'Paddle through the lush mangroves and spot wildlife on this guided kayaking tour.',
       price: 45,
+      duration: 3,
       max_spots: 12,
       available_spots: 8,
       guide_id: 'guide-1',
-      duration: 3,
       profiles: {
         full_name: 'Carlos Mendez'
       }
@@ -384,18 +397,19 @@ const TerritoryManagement: React.FC = () => {
     {
       id: 'mayan-cooking',
       title: 'Mayan Cooking Class',
+      description: 'Learn to prepare traditional Mayan dishes with local ingredients and ancient techniques.',
       price: 35,
+      duration: 4,
       max_spots: 8,
       available_spots: 4,
       guide_id: 'guide-2',
-      duration: 4,
       profiles: {
         full_name: 'Elena Fuentes'
       }
     }
   ];
 
-  const displayTerritory = territory || placeholderTerritory;
+  const displayTerritory = territory || placeholderTerritories[0];
   const displayGuides = tourGuides.length > 0 ? tourGuides : placeholderGuides;
   const displayExperiences = experiences.length > 0 ? experiences : placeholderExperiences;
 
@@ -466,12 +480,20 @@ const TerritoryManagement: React.FC = () => {
                         <div className="text-gray-500">{guide.email}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button
-                          onClick={() => handleRemoveGuide(guide.id)}
-                          className="text-red-600 hover:text-red-900"
-                        >
-                          <Trash2 className="h-5 w-5" />
-                        </button>
+                        <div className="flex justify-end space-x-2">
+                          <Link
+                            to={`/territory-management/edit-guide/${guide.id}`}
+                            className="text-blue-600 hover:text-blue-900"
+                          >
+                            <Edit className="h-5 w-5" />
+                          </Link>
+                          <button
+                            onClick={() => handleRemoveGuide(guide.id)}
+                            className="text-red-600 hover:text-red-900"
+                          >
+                            <Trash2 className="h-5 w-5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
