@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
 import { 
-  Users, Map, User, AlertCircle, Check, X, Plus, Trash2, Calendar, Image, DollarSign, Clock, Edit, Save 
+  Users, Map, User, AlertCircle, Check, X, Plus, Trash2, Edit, Image, DollarSign, Clock 
 } from 'lucide-react';
 
 interface TourGuide {
@@ -15,13 +15,11 @@ interface TourGuide {
 interface Experience {
   id: string;
   title: string;
-  description?: string;
   price: number;
   duration: number;
   max_spots: number;
   available_spots: number;
   guide_id: string;
-  image_urls?: string[];
   profiles: {
     full_name: string;
   };
@@ -65,32 +63,6 @@ const TerritoryManagement: React.FC = () => {
     imageUrls: ['']
   });
 
-  // Editing states
-  const [editingGuideId, setEditingGuideId] = useState<string | null>(null);
-  const [editingExperienceId, setEditingExperienceId] = useState<string | null>(null);
-  
-  const [editGuide, setEditGuide] = useState<{
-    full_name: string;
-  }>({
-    full_name: ''
-  });
-  
-  const [editExperience, setEditExperience] = useState<{
-    title: string;
-    price: number;
-    duration: number;
-    max_spots: number;
-    available_spots: number;
-    guide_id: string;
-  }>({
-    title: '',
-    price: 0,
-    duration: 0,
-    max_spots: 0,
-    available_spots: 0,
-    guide_id: ''
-  });
-
   const fetchData = async () => {
     if (!profile?.territory_id) return;
 
@@ -123,13 +95,11 @@ const TerritoryManagement: React.FC = () => {
         .select(`
           id,
           title,
-          description,
           price,
           duration,
           max_spots,
           available_spots,
           guide_id,
-          image_urls,
           profiles:guide_id (
             full_name
           )
@@ -219,15 +189,36 @@ const TerritoryManagement: React.FC = () => {
     }
   };
 
+  const handleRemoveGuide = async (guideId: string) => {
+    if (!confirm('Are you sure you want to remove this tour guide?')) {
+      return;
+    }
+    
+    try {
+      // Delete profile
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', guideId);
+      
+      if (profileError) throw profileError;
+      
+      // Update local state
+      setTourGuides(tourGuides.filter(guide => guide.id !== guideId));
+      setSuccessMessage('Tour guide removed successfully');
+      setTimeout(() => {
+        setSuccessMessage(null);
+      }, 3000);
+    } catch (error) {
+      console.error('Error removing tour guide:', error);
+      setError('Failed to remove tour guide. Please try again.');
+    }
+  };
+
   const handleAddExperience = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
     setFormSuccess(null);
-    
-    if (!profile?.territory_id) {
-      setFormError('You are not assigned to a region');
-      return;
-    }
     
     const { title, description, price, duration, maxSpots, guideId, imageUrls } = newExperience;
     
@@ -252,7 +243,7 @@ const TerritoryManagement: React.FC = () => {
           max_spots: maxSpots,
           available_spots: maxSpots,
           image_urls: imageUrls.filter(url => url.trim() !== ''),
-          territory_id: profile.territory_id,
+          territory_id: profile?.territory_id,
           guide_id: guideId
         })
         .select(`
@@ -296,185 +287,28 @@ const TerritoryManagement: React.FC = () => {
     }
   };
 
-  const handleRemoveGuide = async (guideId: string) => {
-    if (!confirm('Are you sure you want to remove this tour guide?')) {
-      return;
-    }
-    
-    try {
-      // Update the profile to remove territory assignment and change role
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ 
-          territory_id: null,
-          role: 'tourist' // Demote to regular tourist
-        })
-        .eq('id', guideId);
-      
-      if (updateError) throw updateError;
-      
-      // Update local state
-      setTourGuides(tourGuides.filter(guide => guide.id !== guideId));
-    } catch (error) {
-      console.error('Error removing tour guide:', error);
-      setError('Failed to remove tour guide. Please try again.');
-    }
-  };
-
   const handleDeleteExperience = async (experienceId: string) => {
     if (!confirm('Are you sure you want to delete this experience? This action cannot be undone.')) {
       return;
     }
     
-    setError(null);
-    setSuccessMessage(null);
-    
     try {
-      // First check if there are any bookings for this experience
-      const { data: bookingsData, error: bookingsError } = await supabase
-        .from('bookings')
-        .select('id')
-        .eq('experience_id', experienceId);
-      
-      if (bookingsError) throw bookingsError;
-      
-      if (bookingsData && bookingsData.length > 0) {
-        setError('Cannot delete this experience because it has existing bookings.');
-        return;
-      }
-      
-      // Delete the experience
-      const { error: deleteError } = await supabase
+      const { error } = await supabase
         .from('experiences')
         .delete()
         .eq('id', experienceId);
       
-      if (deleteError) throw deleteError;
+      if (error) throw error;
       
       // Update local state
       setExperiences(experiences.filter(exp => exp.id !== experienceId));
       setSuccessMessage('Experience deleted successfully');
-      
-      // Clear success message after 3 seconds
       setTimeout(() => {
         setSuccessMessage(null);
       }, 3000);
     } catch (error) {
       console.error('Error deleting experience:', error);
       setError('Failed to delete experience. Please try again.');
-    }
-  };
-
-  const handleEditGuide = (guide: TourGuide) => {
-    setEditingGuideId(guide.id);
-    setEditGuide({
-      full_name: guide.full_name
-    });
-  };
-
-  const handleSaveGuideEdit = async (guideId: string) => {
-    try {
-      setError(null);
-      
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          full_name: editGuide.full_name
-        })
-        .eq('id', guideId);
-      
-      if (error) throw error;
-      
-      // Update local state
-      setTourGuides(tourGuides.map(guide => 
-        guide.id === guideId 
-          ? { ...guide, full_name: editGuide.full_name }
-          : guide
-      ));
-      
-      // Also update any experiences that reference this guide
-      setExperiences(experiences.map(exp => 
-        exp.guide_id === guideId 
-          ? { ...exp, profiles: { full_name: editGuide.full_name } }
-          : exp
-      ));
-      
-      setEditingGuideId(null);
-      setSuccessMessage('Tour guide updated successfully');
-      setTimeout(() => {
-        setSuccessMessage(null);
-      }, 3000);
-    } catch (error) {
-      console.error('Error updating tour guide:', error);
-      setError('Failed to update tour guide. Please try again.');
-    }
-  };
-
-  const handleEditExperience = (experience: Experience) => {
-    setEditingExperienceId(experience.id);
-    setEditExperience({
-      title: experience.title,
-      price: experience.price,
-      duration: experience.duration,
-      max_spots: experience.max_spots,
-      available_spots: experience.available_spots,
-      guide_id: experience.guide_id
-    });
-  };
-
-  const handleSaveExperienceEdit = async (experienceId: string) => {
-    try {
-      setError(null);
-      
-      // Check if available spots is greater than max spots
-      if (editExperience.available_spots > editExperience.max_spots) {
-        setError('Available spots cannot be greater than max spots');
-        return;
-      }
-      
-      const { error } = await supabase
-        .from('experiences')
-        .update({
-          title: editExperience.title,
-          price: editExperience.price,
-          duration: editExperience.duration,
-          max_spots: editExperience.max_spots,
-          available_spots: editExperience.available_spots,
-          guide_id: editExperience.guide_id
-        })
-        .eq('id', experienceId);
-      
-      if (error) throw error;
-      
-      // Get the guide name for the updated experience
-      const guide = tourGuides.find(g => g.id === editExperience.guide_id);
-      
-      // Update local state
-      setExperiences(experiences.map(exp => 
-        exp.id === experienceId 
-          ? {
-              ...exp,
-              title: editExperience.title,
-              price: editExperience.price,
-              duration: editExperience.duration,
-              max_spots: editExperience.max_spots,
-              available_spots: editExperience.available_spots,
-              guide_id: editExperience.guide_id,
-              profiles: {
-                full_name: guide ? guide.full_name : exp.profiles.full_name
-              }
-            }
-          : exp
-      ));
-      
-      setEditingExperienceId(null);
-      setSuccessMessage('Experience updated successfully');
-      setTimeout(() => {
-        setSuccessMessage(null);
-      }, 3000);
-    } catch (error) {
-      console.error('Error updating experience:', error);
-      setError('Failed to update experience. Please try again.');
     }
   };
 
@@ -513,11 +347,6 @@ const TerritoryManagement: React.FC = () => {
     return <Navigate to="/login" />;
   }
 
-  const formatDate = (dateString: string) => {
-    const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'long', day: 'numeric' };
-    return new Date(dateString).toLocaleDateString(undefined, options);
-  };
-
   // Placeholder data if none in database
   const placeholderTerritory = {
     id: 'rio-dulce',
@@ -544,10 +373,10 @@ const TerritoryManagement: React.FC = () => {
       id: 'jungle-kayaking',
       title: 'Jungle Kayaking Adventure',
       price: 45,
-      duration: 3,
       max_spots: 12,
       available_spots: 8,
       guide_id: 'guide-1',
+      duration: 3,
       profiles: {
         full_name: 'Carlos Mendez'
       }
@@ -556,10 +385,10 @@ const TerritoryManagement: React.FC = () => {
       id: 'mayan-cooking',
       title: 'Mayan Cooking Class',
       price: 35,
-      duration: 4,
       max_spots: 8,
       available_spots: 4,
       guide_id: 'guide-2',
+      duration: 4,
       profiles: {
         full_name: 'Elena Fuentes'
       }
@@ -631,44 +460,18 @@ const TerritoryManagement: React.FC = () => {
                   {displayGuides.map((guide) => (
                     <tr key={guide.id}>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {editingGuideId === guide.id ? (
-                          <input
-                            type="text"
-                            value={editGuide.full_name}
-                            onChange={(e) => setEditGuide({...editGuide, full_name: e.target.value})}
-                            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-                          />
-                        ) : (
-                          <div className="font-medium text-gray-900">{guide.full_name}</div>
-                        )}
+                        <div className="font-medium text-gray-900">{guide.full_name}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-gray-500">{guide.email}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex justify-end space-x-2">
-                          {editingGuideId === guide.id ? (
-                            <button
-                              onClick={() => handleSaveGuideEdit(guide.id)}
-                              className="text-green-600 hover:text-green-900"
-                            >
-                              <Save className="h-5 w-5" />
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => handleEditGuide(guide)}
-                              className="text-blue-600 hover:text-blue-900"
-                            >
-                              <Edit className="h-5 w-5" />
-                            </button>
-                          )}
-                          <button
-                            onClick={() => handleRemoveGuide(guide.id)}
-                            className="text-red-600 hover:text-red-900"
-                          >
-                            <Trash2 className="h-5 w-5" />
-                          </button>
-                        </div>
+                        <button
+                          onClick={() => handleRemoveGuide(guide.id)}
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          <Trash2 className="h-5 w-5" />
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -682,7 +485,7 @@ const TerritoryManagement: React.FC = () => {
             <div className="p-6 border-b border-gray-200">
               <div className="flex justify-between items-center">
                 <div className="flex items-center">
-                  <Calendar className="h-6 w-6 text-green-600 mr-2" />
+                  <Map className="h-6 w-6 text-green-600 mr-2" />
                   <h2 className="text-xl font-bold">Experiences</h2>
                 </div>
                 <button
@@ -720,93 +523,27 @@ const TerritoryManagement: React.FC = () => {
                   {displayExperiences.map((experience) => (
                     <tr key={experience.id}>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {editingExperienceId === experience.id ? (
-                          <input
-                            type="text"
-                            value={editExperience.title}
-                            onChange={(e) => setEditExperience({...editExperience, title: e.target.value})}
-                            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-                          />
-                        ) : (
-                          <div className="font-medium text-gray-900">{experience.title}</div>
-                        )}
+                        <div className="font-medium text-gray-900">{experience.title}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {editingExperienceId === experience.id ? (
-                          <select
-                            value={editExperience.guide_id}
-                            onChange={(e) => setEditExperience({...editExperience, guide_id: e.target.value})}
-                            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-                          >
-                            {displayGuides.map((guide) => (
-                              <option key={guide.id} value={guide.id}>
-                                {guide.full_name}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          <div className="text-gray-500">{experience.profiles.full_name}</div>
-                        )}
+                        <div className="text-gray-500">{experience.profiles.full_name}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {editingExperienceId === experience.id ? (
-                          <div className="flex items-center">
-                            <span className="text-gray-500 mr-1">$</span>
-                            <input
-                              type="number"
-                              value={editExperience.price}
-                              onChange={(e) => setEditExperience({...editExperience, price: parseFloat(e.target.value)})}
-                              className="block w-20 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-                              min="0"
-                              step="0.01"
-                            />
-                          </div>
-                        ) : (
-                          <div className="text-gray-500">${experience.price}</div>
-                        )}
+                        <div className="text-gray-500">${experience.price}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {editingExperienceId === experience.id ? (
-                          <div className="flex items-center space-x-2">
-                            <input
-                              type="number"
-                              value={editExperience.available_spots}
-                              onChange={(e) => setEditExperience({...editExperience, available_spots: parseInt(e.target.value)})}
-                              className="block w-16 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-                              min="0"
-                            />
-                            <span className="text-gray-500">/</span>
-                            <input
-                              type="number"
-                              value={editExperience.max_spots}
-                              onChange={(e) => setEditExperience({...editExperience, max_spots: parseInt(e.target.value)})}
-                              className="block w-16 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-                              min="1"
-                            />
-                          </div>
-                        ) : (
-                          <div className="text-gray-500">
-                            {experience.available_spots} / {experience.max_spots} spots
-                          </div>
-                        )}
+                        <div className="text-gray-500">
+                          {experience.available_spots} / {experience.max_spots} spots
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex justify-end space-x-2">
-                          {editingExperienceId === experience.id ? (
-                            <button
-                              onClick={() => handleSaveExperienceEdit(experience.id)}
-                              className="text-green-600 hover:text-green-900"
-                            >
-                              <Save className="h-5 w-5" />
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => handleEditExperience(experience)}
-                              className="text-blue-600 hover:text-blue-900"
-                            >
-                              <Edit className="h-5 w-5" />
-                            </button>
-                          )}
+                          <Link
+                            to={`/territory-management/edit-experience/${experience.id}`}
+                            className="text-blue-600 hover:text-blue-900"
+                          >
+                            <Edit className="h-5 w-5" />
+                          </Link>
                           <button
                             onClick={() => handleDeleteExperience(experience.id)}
                             className="text-red-600 hover:text-red-900"
