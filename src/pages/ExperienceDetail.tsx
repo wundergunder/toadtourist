@@ -70,49 +70,61 @@ const ExperienceDetail: React.FC = () => {
           .from('experiences')
           .select('*')
           .eq('id', id)
+          .maybeSingle();
+        
+        if (experienceError) {
+          console.error('Error fetching experience:', experienceError);
+          throw new Error('Failed to fetch experience details');
+        }
+        
+        if (!experienceData) {
+          // If no experience found in the database, use placeholder data
+          const placeholderExperience = getPlaceholderExperience(id || '');
+          setExperience(placeholderExperience);
+          setTerritory(getPlaceholderTerritory());
+          setGuide(getPlaceholderGuide());
+          setReviews(getPlaceholderReviews());
+          setIsLoading(false);
+          return;
+        }
+        
+        setExperience(experienceData);
+        
+        // Fetch territory
+        const { data: territoryData, error: territoryError } = await supabase
+          .from('territories')
+          .select('id, name')
+          .eq('id', experienceData.territory_id)
           .single();
         
-        if (experienceError) throw experienceError;
+        if (territoryError) throw territoryError;
+        setTerritory(territoryData);
         
-        if (experienceData) {
-          setExperience(experienceData);
-          
-          // Fetch territory
-          const { data: territoryData, error: territoryError } = await supabase
-            .from('territories')
-            .select('id, name')
-            .eq('id', experienceData.territory_id)
-            .single();
-          
-          if (territoryError) throw territoryError;
-          setTerritory(territoryData);
-          
-          // Fetch guide
-          const { data: guideData, error: guideError } = await supabase
-            .from('profiles')
-            .select('id, full_name')
-            .eq('id', experienceData.guide_id)
-            .single();
-          
-          if (guideError) throw guideError;
-          setGuide(guideData);
-          
-          // Fetch reviews
-          const { data: reviewsData, error: reviewsError } = await supabase
-            .from('reviews')
-            .select(`
-              id,
-              tourist_id,
-              rating,
-              comment,
-              created_at,
-              profiles:tourist_id (full_name)
-            `)
-            .eq('experience_id', id);
-          
-          if (reviewsError) throw reviewsError;
-          setReviews(reviewsData || []);
-        }
+        // Fetch guide
+        const { data: guideData, error: guideError } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .eq('id', experienceData.guide_id)
+          .single();
+        
+        if (guideError) throw guideError;
+        setGuide(guideData);
+        
+        // Fetch reviews
+        const { data: reviewsData, error: reviewsError } = await supabase
+          .from('reviews')
+          .select(`
+            id,
+            tourist_id,
+            rating,
+            comment,
+            created_at,
+            profiles:tourist_id (full_name)
+          `)
+          .eq('experience_id', id);
+        
+        if (reviewsError) throw reviewsError;
+        setReviews(reviewsData || []);
       } catch (error) {
         console.error('Error fetching experience details:', error);
         setError('Failed to load experience details. Please try again later.');
@@ -210,72 +222,124 @@ const ExperienceDetail: React.FC = () => {
     }
   };
 
-  // If no data in database, show placeholder data
-  const placeholderExperience = {
-    id: 'jungle-kayaking',
-    title: 'Jungle Kayaking Adventure',
-    description: 'Paddle through the lush mangroves and spot wildlife on this guided kayaking tour. Our experienced guides will take you through hidden waterways where you can observe birds, monkeys, and possibly manatees in their natural habitat.\n\nThis tour begins at our base camp where you will receive safety instructions and equipment. We will then transport you to the starting point on the river where you will board your kayak. The journey takes you through narrow channels lined with mangroves, opening occasionally into wider lagoons rich with wildlife.\n\nAlong the way, your guide will point out interesting plants and animals, explaining their ecological importance. You will have opportunities to take photos and simply enjoy the tranquility of this unique ecosystem.\n\nThis tour is suitable for beginners and includes all necessary equipment including life jackets, paddles, and dry bags for your belongings. We recommend bringing sunscreen, insect repellent, a hat, and water.',
-    price: 45,
-    duration: 3,
-    max_spots: 12,
-    available_spots: 8,
-    image_urls: [
-      'https://images.unsplash.com/photo-1544551763-92ab472cad5d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80',
-      'https://images.unsplash.com/photo-1572125675722-238a4f1f4ea2?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80',
-      'https://images.unsplash.com/photo-1623991618729-acd138770029?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80'
-    ],
-    territory_id: 'rio-dulce',
-    guide_id: 'guide-1'
-  };
-
-  const placeholderTerritory = {
-    id: 'rio-dulce',
-    name: 'Rio Dulce'
-  };
-
-  const placeholderGuide = {
-    id: 'guide-1',
-    full_name: 'Carlos Mendez'
-  };
-
-  const placeholderReviews = [
-    {
-      id: 'review-1',
-      tourist_id: 'tourist-1',
-      rating: 5,
-      comment: 'Amazing experience! Our guide was knowledgeable and we saw so much wildlife. Highly recommend!',
-      created_at: '2023-06-15T14:30:00Z',
-      profiles: {
-        full_name: 'Sarah Johnson'
-      }
-    },
-    {
-      id: 'review-2',
-      tourist_id: 'tourist-2',
-      rating: 4,
-      comment: 'Great tour, beautiful scenery. The kayaks were comfortable and the pace was perfect for beginners.',
-      created_at: '2023-05-22T09:15:00Z',
-      profiles: {
-        full_name: 'Michael Chen'
-      }
-    },
-    {
-      id: 'review-3',
-      tourist_id: 'tourist-3',
-      rating: 5,
-      comment: 'One of the highlights of our trip to Guatemala! We saw monkeys, toucans, and even a manatee!',
-      created_at: '2023-04-10T16:45:00Z',
-      profiles: {
-        full_name: 'Emma Rodriguez'
-      }
+  // Placeholder data functions
+  const getPlaceholderExperience = (experienceId: string): Experience => {
+    if (experienceId === 'jungle-kayaking') {
+      return {
+        id: 'jungle-kayaking',
+        title: 'Jungle Kayaking Adventure',
+        description: 'Paddle through the lush mangroves and spot wildlife on this guided kayaking tour. Our experienced guides will take you through hidden waterways where you can observe birds, monkeys, and possibly manatees in their natural habitat.\n\nThis tour begins at our base camp where you will receive safety instructions and equipment. We will then transport you to the starting point on the river where you will board your kayak. The journey takes you through narrow channels lined with mangroves, opening occasionally into wider lagoons rich with wildlife.\n\nAlong the way, your guide will point out interesting plants and animals, explaining their ecological importance. You will have opportunities to take photos and simply enjoy the tranquility of this unique ecosystem.\n\nThis tour is suitable for beginners and includes all necessary equipment including life jackets, paddles, and dry bags for your belongings. We recommend bringing sunscreen, insect repellent, a hat, and water.',
+        price: 45,
+        duration: 3,
+        max_spots: 12,
+        available_spots: 8,
+        image_urls: [
+          'https://images.unsplash.com/photo-1544551763-92ab472cad5d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80',
+          'https://images.unsplash.com/photo-1572125675722-238a4f1f4ea2?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80',
+          'https://images.unsplash.com/photo-1623991618729-acd138770029?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80'
+        ],
+        territory_id: 'rio-dulce',
+        guide_id: 'guide-1'
+      };
+    } else if (experienceId === 'mayan-cooking') {
+      return {
+        id: 'mayan-cooking',
+        title: 'Mayan Cooking Class',
+        description: 'Learn to prepare traditional Mayan dishes with local ingredients and ancient techniques. This hands-on cooking class takes place in a traditional kitchen where you will learn about the cultural significance of Mayan cuisine while preparing a delicious meal to enjoy together.',
+        price: 35,
+        duration: 4,
+        max_spots: 8,
+        available_spots: 4,
+        image_urls: [
+          'https://images.unsplash.com/photo-1566559532215-bbc9b4cc6d2a?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80',
+          'https://images.unsplash.com/photo-1604152135912-04a022e23696?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80'
+        ],
+        territory_id: 'rio-dulce',
+        guide_id: 'guide-2'
+      };
+    } else if (experienceId === 'waterfall-trek') {
+      return {
+        id: 'waterfall-trek',
+        title: 'Hidden Waterfall Trek',
+        description: 'Hike through the rainforest to discover hidden waterfalls and natural swimming pools. This guided trek takes you off the beaten path to some of the most beautiful and secluded spots in the region. Along the way, your guide will share knowledge about local flora and fauna.',
+        price: 55,
+        duration: 6,
+        max_spots: 15,
+        available_spots: 12,
+        image_urls: [
+          'https://images.unsplash.com/photo-1596786232430-dfa08ebf4e7f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80',
+          'https://images.unsplash.com/photo-1588392382834-a891154bca4d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80'
+        ],
+        territory_id: 'rio-dulce',
+        guide_id: 'guide-3'
+      };
+    } else {
+      // Default placeholder for unknown experiences
+      return {
+        id: experienceId,
+        title: 'Jungle Adventure',
+        description: 'Experience the beauty of the jungle with our expert guides. This tour offers a unique opportunity to explore the natural wonders of Rio Dulce.',
+        price: 50,
+        duration: 4,
+        max_spots: 10,
+        available_spots: 6,
+        image_urls: [
+          'https://images.unsplash.com/photo-1544551763-92ab472cad5d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80'
+        ],
+        territory_id: 'rio-dulce',
+        guide_id: 'guide-1'
+      };
     }
-  ];
+  };
 
-  const displayExperience = experience || placeholderExperience;
-  const displayTerritory = territory || placeholderTerritory;
-  const displayGuide = guide || placeholderGuide;
-  const displayReviews = reviews.length > 0 ? reviews : placeholderReviews;
-  const displayImages = displayExperience.image_urls || [];
+  const getPlaceholderTerritory = (): Territory => {
+    return {
+      id: 'rio-dulce',
+      name: 'Rio Dulce'
+    };
+  };
+
+  const getPlaceholderGuide = (): Guide => {
+    return {
+      id: 'guide-1',
+      full_name: 'Carlos Mendez'
+    };
+  };
+
+  const getPlaceholderReviews = (): Review[] => {
+    return [
+      {
+        id: 'review-1',
+        tourist_id: 'tourist-1',
+        rating: 5,
+        comment: 'Amazing experience! Our guide was knowledgeable and we saw so much wildlife. Highly recommend!',
+        created_at: '2023-06-15T14:30:00Z',
+        profiles: {
+          full_name: 'Sarah Johnson'
+        }
+      },
+      {
+        id: 'review-2',
+        tourist_id: 'tourist-2',
+        rating: 4,
+        comment: 'Great tour, beautiful scenery. The kayaks were comfortable and the pace was perfect for beginners.',
+        created_at: '2023-05-22T09:15:00Z',
+        profiles: {
+          full_name: 'Michael Chen'
+        }
+      },
+      {
+        id: 'review-3',
+        tourist_id: 'tourist-3',
+        rating: 5,
+        comment: 'One of the highlights of our trip to Guatemala! We saw monkeys, toucans, and even a manatee!',
+        created_at: '2023-04-10T16:45:00Z',
+        profiles: {
+          full_name: 'Emma Rodriguez'
+        }
+      }
+    ];
+  };
 
   const formatDate = (dateString: string) => {
     const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'long', day: 'numeric' };
@@ -303,9 +367,9 @@ const ExperienceDetail: React.FC = () => {
         </div>
       ) : (
         <>
-          <Link to={`/territories/${displayTerritory.id}`} className="inline-flex items-center text-green-600 hover:text-green-700 mb-6">
+          <Link to={`/territories/${territory?.id || 'rio-dulce'}`} className="inline-flex items-center text-green-600 hover:text-green-700 mb-6">
             <ArrowLeft className="h-4 w-4 mr-1" />
-            Back to {displayTerritory.name}
+            Back to {territory?.name || 'Rio Dulce'}
           </Link>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -314,13 +378,19 @@ const ExperienceDetail: React.FC = () => {
               {/* Image Gallery */}
               <div className="bg-white rounded-xl shadow-md overflow-hidden">
                 <div className="relative h-80">
-                  <img 
-                    src={displayImages[currentImageIndex]} 
-                    alt={displayExperience.title} 
-                    className="h-full w-full object-cover"
-                  />
+                  {experience?.image_urls && experience.image_urls.length > 0 ? (
+                    <img 
+                      src={experience.image_urls[currentImageIndex]} 
+                      alt={experience.title} 
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="h-full w-full bg-gray-200 flex items-center justify-center">
+                      <p className="text-gray-500">No image available</p>
+                    </div>
+                  )}
                   
-                  {displayImages.length > 1 && (
+                  {experience?.image_urls && experience.image_urls.length > 1 && (
                     <>
                       <button 
                         onClick={handlePrevImage}
@@ -336,7 +406,7 @@ const ExperienceDetail: React.FC = () => {
                       </button>
                       
                       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-2">
-                        {displayImages.map((_, index) => (
+                        {experience.image_urls.map((_, index) => (
                           <button 
                             key={index}
                             onClick={() => setCurrentImageIndex(index)}
@@ -355,32 +425,32 @@ const ExperienceDetail: React.FC = () => {
               <div className="bg-white rounded-xl shadow-md p-6">
                 <div className="flex items-center mb-2">
                   <MapPin className="h-5 w-5 text-green-600 mr-2" />
-                  <Link to={`/territories/${displayTerritory.id}`} className="text-green-600 hover:text-green-700 font-medium">
-                    {displayTerritory.name}
+                  <Link to={`/territories/${territory?.id || 'rio-dulce'}`} className="text-green-600 hover:text-green-700 font-medium">
+                    {territory?.name || 'Rio Dulce'}
                   </Link>
                 </div>
                 
-                <h1 className="text-3xl font-bold mb-4">{displayExperience.title}</h1>
+                <h1 className="text-3xl font-bold mb-4">{experience?.title}</h1>
                 
                 <div className="flex flex-wrap gap-4 mb-6">
                   <div className="flex items-center text-gray-600">
                     <Clock className="h-5 w-5 mr-2" />
-                    <span>{displayExperience.duration} hours</span>
+                    <span>{experience?.duration} hours</span>
                   </div>
                   <div className="flex items-center text-gray-600">
                     <Users className="h-5 w-5 mr-2" />
-                    <span>{displayExperience.available_spots} spots available</span>
+                    <span>{experience?.available_spots} spots available</span>
                   </div>
                   <div className="flex items-center text-gray-600">
                     <DollarSign className="h-5 w-5 mr-2" />
-                    <span>${displayExperience.price} per person</span>
+                    <span>${experience?.price} per person</span>
                   </div>
                 </div>
                 
                 <div className="mb-6">
                   <h2 className="text-xl font-bold mb-2">About this experience</h2>
                   <p className="text-gray-600 whitespace-pre-line">
-                    {displayExperience.description}
+                    {experience?.description}
                   </p>
                 </div>
                 
@@ -389,11 +459,11 @@ const ExperienceDetail: React.FC = () => {
                   <div className="flex items-center">
                     <div className="bg-green-100 h-12 w-12 rounded-full flex items-center justify-center mr-4">
                       <span className="text-green-700 font-bold">
-                        {displayGuide.full_name.charAt(0)}
+                        {guide?.full_name.charAt(0) || 'G'}
                       </span>
                     </div>
                     <div>
-                      <p className="font-medium">{displayGuide.full_name}</p>
+                      <p className="font-medium">{guide?.full_name || 'Local Guide'}</p>
                       <p className="text-sm text-gray-500">Local Expert Guide</p>
                     </div>
                   </div>
@@ -404,9 +474,9 @@ const ExperienceDetail: React.FC = () => {
               <div className="bg-white rounded-xl shadow-md p-6">
                 <h2 className="text-xl font-bold mb-6">Reviews</h2>
                 
-                {displayReviews.length > 0 ? (
+                {reviews.length > 0 ? (
                   <div className="space-y-6">
-                    {displayReviews.map((review) => (
+                    {reviews.map((review) => (
                       <div key={review.id} className="border-b border-gray-200 pb-6 last:border-0 last:pb-0">
                         <div className="flex items-center mb-2">
                           <div className="bg-green-100 h-10 w-10 rounded-full flex items-center justify-center mr-3">
@@ -489,7 +559,7 @@ const ExperienceDetail: React.FC = () => {
                         value={numPeople}
                         onChange={(e) => setNumPeople(parseInt(e.target.value))}
                         min="1"
-                        max={displayExperience.available_spots}
+                        max={experience?.available_spots}
                         className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
                       />
                     </div>
@@ -523,21 +593,21 @@ const ExperienceDetail: React.FC = () => {
                     
                     <div className="border-t border-gray-200 pt-4 mb-4">
                       <div className="flex justify-between mb-2">
-                        <span className="text-gray-600">${displayExperience.price} × {numPeople} {numPeople === 1 ? 'person' : 'people'}</span>
-                        <span className="font-medium">${displayExperience.price * numPeople}</span>
+                        <span className="text-gray-600">${experience?.price} × {numPeople} {numPeople === 1 ? 'person' : 'people'}</span>
+                        <span className="font-medium">${(experience?.price || 0) * numPeople}</span>
                       </div>
                       <div className="flex justify-between font-bold text-lg">
                         <span>Total</span>
-                        <span>${displayExperience.price * numPeople}</span>
+                        <span>${(experience?.price || 0) * numPeople}</span>
                       </div>
                     </div>
                     
                     <button
                       onClick={handleBooking}
-                      disabled={displayExperience.available_spots === 0}
+                      disabled={!experience || experience.available_spots === 0}
                       className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {displayExperience.available_spots === 0 ? 'Sold Out' : 'Book Now'}
+                      {!experience || experience.available_spots === 0 ? 'Sold Out' : 'Book Now'}
                     </button>
                     
                     {!user && (

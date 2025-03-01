@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Calendar, MapPin, Star, Users } from 'lucide-react';
+import { useAuthStore } from '../store/authStore';
 
 const ToadLogo = () => (
   <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -16,6 +17,8 @@ const ToadLogo = () => (
 );
 
 const Home: React.FC = () => {
+  const { user } = useAuthStore();
+  
   return (
     <div className="space-y-12">
       {/* Hero Section */}
@@ -43,12 +46,14 @@ const Home: React.FC = () => {
                 >
                   Explore Territories
                 </Link>
-                <Link 
-                  to="/register" 
-                  className="bg-white hover:bg-gray-100 text-green-700 font-bold py-3 px-6 rounded-lg text-center transition-colors"
-                >
-                  Sign Up Now
-                </Link>
+                {!user && (
+                  <Link 
+                    to="/register" 
+                    className="bg-white hover:bg-gray-100 text-green-700 font-bold py-3 px-6 rounded-lg text-center transition-colors"
+                  >
+                    Sign Up Now
+                  </Link>
+                )}
               </div>
             </div>
           </div>
@@ -243,12 +248,21 @@ const Home: React.FC = () => {
         <p className="text-xl mb-6 max-w-2xl mx-auto">
           Join Lazy Toad today and discover unforgettable experiences in Rio Dulce and beyond.
         </p>
-        <Link 
-          to="/register" 
-          className="inline-block bg-white text-green-700 hover:bg-gray-100 font-bold py-3 px-8 rounded-lg transition-colors"
-        >
-          Get Started
-        </Link>
+        {!user ? (
+          <Link 
+            to="/register" 
+            className="inline-block bg-white text-green-700 hover:bg-gray-100 font-bold py-3 px-8 rounded-lg transition-colors"
+          >
+            Get Started
+          </Link>
+        ) : (
+          <Link 
+            to="/territories" 
+            className="inline-block bg-white text-green-700 hover:bg-gray-100 font-bold py-3 px-8 rounded-lg transition-colors"
+          >
+            Browse Experiences
+          </Link>
+        )}
       </section>
     </div>
   );
