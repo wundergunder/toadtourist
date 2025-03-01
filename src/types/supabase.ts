@@ -173,5 +173,47 @@ export interface Database {
     Enums: {
       [_ in never]: never
     }
+    Storage: {
+      Buckets: {
+        images: {
+          Row: {
+            id: string
+            name: string
+            owner: string | null
+            created_at: string | null
+            updated_at: string | null
+            public: boolean | null
+            avif_autodetection: boolean | null
+            file_size_limit: number | null
+            allowed_mime_types: string[] | null
+          }
+          Insert: {
+            id: string
+            name: string
+            owner?: string | null
+            created_at?: string | null
+            updated_at?: string | null
+            public?: boolean | null
+            avif_autodetection?: boolean | null
+            file_size_limit?: number | null
+            allowed_mime_types?: string[] | null
+          }
+          Update: {
+            id?: string
+            name?: string
+            owner?: string | null
+            created_at?: string | null
+            updated_at?: string | null
+            public?: boolean | null
+            avif_autodetection?: boolean | null
+            file_size_limit?: number | null
+            allowed_mime_types?: string[] | null
+          }
+        }
+      }
+      Objects: {
+        [_ in never]: never
+      }
+    }
   }
 }

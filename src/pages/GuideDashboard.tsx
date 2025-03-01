@@ -7,6 +7,7 @@ import {
   Edit, Save, ChevronDown, ChevronUp, Calendar as CalendarIcon
 } from 'lucide-react';
 import { format, addDays, parseISO } from 'date-fns';
+import ImageUploader from '../components/ImageUploader';
 
 interface Experience {
   id: string;
@@ -18,6 +19,7 @@ interface Experience {
   available_spots: number;
   image_urls: string[];
   territory_id: string;
+  guide_id: string;
   territories: {
     name: string;
   };
@@ -42,6 +44,12 @@ interface Territory {
   name: string;
 }
 
+interface TourGuide {
+  id: string;
+  email: string;
+  full_name: string;
+}
+
 interface AvailabilityDate {
   date: string;
   max_spots: number;
@@ -52,6 +60,7 @@ interface AvailabilityDate {
 const GuideDashboard: React.FC = () => {
   const { user, profile } = useAuthStore();
   
+  const [tourGuides, setTourGuides] = useState<TourGuide[]>([]);
   const [experiences, setExperiences] = useState<Experience[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [territories, setTerritories] = useState<Territory[]>([]);
@@ -90,6 +99,10 @@ const GuideDashboard: React.FC = () => {
     bookedSpots: number;
   } | null>(null);
 
+  // Image upload state
+  const [showImageUploader, setShowImageUploader] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState<number | null>(null);
+
   useEffect(() => {
     const fetchData = async () => {
       if (!user) return;
@@ -110,6 +123,7 @@ const GuideDashboard: React.FC = () => {
             available_spots,
             image_urls,
             territory_id,
+            guide_id,
             territories (
               name
             )
@@ -234,16 +248,20 @@ const GuideDashboard: React.FC = () => {
           price,
           duration,
           max_spots,
-          available_spots,
+          available_ spots,
           image_urls,
           territory_id,
+          guide_id,
           territories (
             name
           )
         `)
         .single();
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error adding experience:', error);
+        throw new Error('Failed to add experience. You may not have permission to create experiences.');
+      }
       
       // Add to local state
       if (data) {
@@ -282,7 +300,7 @@ const GuideDashboard: React.FC = () => {
       }, 2000);
     } catch (error) {
       console.error('Error adding experience:', error);
-      setFormError('Failed to add experience. Please try again.');
+      setFormError(error instanceof Error ? error.message : 'Failed to add experience. Please try again.');
     }
   };
 
@@ -309,6 +327,24 @@ const GuideDashboard: React.FC = () => {
       ...newExperience,
       imageUrls: updatedUrls
     });
+  };
+
+  const handleImageUploaded = (url: string) => {
+    if (currentImageIndex !== null) {
+      const updatedUrls = [...newExperience.imageUrls];
+      updatedUrls[currentImageIndex] = url;
+      setNewExperience({
+        ...newExperience,
+        imageUrls: updatedUrls
+      });
+      setShowImageUploader(false);
+      setCurrentImageIndex(null);
+    }
+  };
+
+  const handleUploadImage = (index: number) => {
+    setCurrentImageIndex(index);
+    setShowImageUploader(true);
   };
 
   const toggleExpandExperience = (experienceId: string) => {
@@ -459,6 +495,7 @@ const GuideDashboard: React.FC = () => {
       available_spots: 8,
       image_urls: ['https://images.unsplash.com/photo-1544551763-92ab472cad5d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80'],
       territory_id: 'rio-dulce',
+      guide_id: 'guide-1',
       territories: {
         name: 'Rio Dulce'
       }
@@ -673,7 +710,7 @@ const GuideDashboard: React.FC = () => {
                                                 type="number"
                                                 min="0"
                                                 max={date.max_spots}
-                                                value={editingAvailability.bookedSpots}
+                                                value={editingAvailability.bookedSpots || 0}
                                                 onChange={(e) => setEditingAvailability({
                                                   ...editingAvailability,
                                                   bookedSpots: parseInt(e.target.value) || 0
@@ -854,47 +891,62 @@ const GuideDashboard: React.FC = () => {
                     <label htmlFor="price" className="block text-sm font-medium text-gray-700 mb-1">
                       Price (USD) *
                     </label>
-                    <input
-                      id="price"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={newExperience.price}
-                      onChange={(e) => setNewExperience({...newExperience, price: parseFloat(e.target.value)})}
-                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-                      required
-                    />
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <DollarSign className="h-5 w-5 text-gray-400" />
+                      </div>
+                      <input
+                        id="price"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={newExperience.price || 0}
+                        onChange={(e) => setNewExperience({...newExperience, price: parseFloat(e.target.value) || 0})}
+                        className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                        required
+                      />
+                    </div>
                   </div>
                   
                   <div>
                     <label htmlFor="duration" className="block text-sm font-medium text-gray-700 mb-1">
                       Duration (hours) *
                     </label>
-                    <input
-                      id="duration"
-                      type="number"
-                      min="0.5"
-                      step="0.5"
-                      value={newExperience.duration}
-                      onChange={(e) => setNewExperience({...newExperience, duration: parseFloat(e.target.value)})}
-                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-                      required
-                    />
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Clock className="h-5 w-5 text-gray-400" />
+                      </div>
+                      <input
+                        id="duration"
+                        type="number"
+                        min="0.5"
+                        step="0.5"
+                        value={newExperience.duration || 1}
+                        onChange={(e) => setNewExperience({...newExperience, duration: parseFloat(e.target.value) || 1})}
+                        className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                        required
+                      />
+                    </div>
                   </div>
                   
                   <div>
                     <label htmlFor="maxSpots" className="block text-sm font-medium text-gray-700 mb-1">
                       Max Spots *
                     </label>
-                    <input
-                      id="maxSpots"
-                      type="number"
-                      min="1"
-                      value={newExperience.maxSpots}
-                      onChange={(e) => setNewExperience({...newExperience, maxSpots: parseInt(e.target.value)})}
-                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-                      required
-                    />
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Users className="h-5 w-5 text-gray-400" />
+                      </div>
+                      <input
+                        id="maxSpots"
+                        type="number"
+                        min="1"
+                        value={newExperience.maxSpots || 10}
+                        onChange={(e) => setNewExperience({...newExperience, maxSpots: parseInt(e.target.value) || 10})}
+                        className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                        required
+                      />
+                    </div>
                   </div>
                 </div>
                 
@@ -920,19 +972,40 @@ const GuideDashboard: React.FC = () => {
                 
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Image URLs *
+                    Images *
                   </label>
                   {newExperience.imageUrls.map((url, index) => (
                     <div key={index} className="flex items-center mb-2">
                       <div className="flex-grow mr-2">
-                        <input
-                          type="url"
-                          value={url}
-                          onChange={(e) => handleImageUrlChange(index, e.target.value)}
-                          placeholder="https://example.com/image.jpg"
-                          className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-                          required={index === 0}
-                        />
+                        <div className="flex items-center">
+                          <input
+                            type="url"
+                            value={url}
+                            onChange={(e) => handleImageUrlChange(index, e.target.value)}
+                            placeholder="https://example.com/image.jpg"
+                            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                            required={index === 0}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleUploadImage(index)}
+                            className="ml-2 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-3 rounded-md flex items-center"
+                          >
+                            <Upload className="h-4 w-4" />
+                          </button>
+                        </div>
+                        {url && (
+                          <div className="mt-1 h-16 w-full">
+                            <img 
+                              src={url} 
+                              alt={`Preview ${index + 1}`} 
+                              className="h-full object-cover rounded-md"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = 'https://via.placeholder.com/150?text=Invalid+Image+URL';
+                              }}
+                            />
+                          </div>
+                        )}
                       </div>
                       {index > 0 && (
                         <button
@@ -1015,11 +1088,11 @@ const GuideDashboard: React.FC = () => {
                     id="maxSpots"
                     type="number"
                     min="1"
-                    value={newAvailability.max_spots}
+                    value={newAvailability.max_spots || 10}
                     onChange={(e) => setNewAvailability({
                       ...newAvailability, 
-                      max_spots: parseInt(e.target.value),
-                      available_spots: Math.max(0, parseInt(e.target.value) - newAvailability.booked_spots)
+                      max_spots: parseInt(e.target.value) || 10,
+                      available_spots: Math.max(0, (parseInt(e.target.value) || 10) - newAvailability.booked_spots)
                     })}
                     className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
                     required
@@ -1040,11 +1113,11 @@ const GuideDashboard: React.FC = () => {
                     type="number"
                     min="0"
                     max={newAvailability.max_spots}
-                    value={newAvailability.booked_spots}
+                    value={newAvailability.booked_spots || 0}
                     onChange={(e) => setNewAvailability({
                       ...newAvailability, 
-                      booked_spots: parseInt(e.target.value),
-                      available_spots: Math.max(0, newAvailability.max_spots - parseInt(e.target.value))
+                      booked_spots: parseInt(e.target.value) || 0,
+                      available_spots: Math.max(0, newAvailability.max_spots - (parseInt(e.target.value) || 0))
                     })}
                     className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
                   />
@@ -1067,6 +1140,30 @@ const GuideDashboard: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      
+      {/* Image Upload Modal */}
+      {showImageUploader && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <h2 className="text-xl font-bold mb-4">Upload Image</h2>
+            
+            <ImageUploader 
+              onImageUploaded={handleImageUploaded}
+              onError={(error) => setFormError(error)}
+            />
+            
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowImageUploader(false)}
+                className="bg-white border border-gray-300 text-gray-700 font-medium py-2 px-4 rounded-md hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}

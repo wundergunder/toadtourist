@@ -3,8 +3,9 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
 import { 
-  MapPin, DollarSign, Clock, Users, AlertCircle, Check, X, Plus, Save, Image 
+  MapPin, DollarSign, Clock, Users, AlertCircle, Check, X, Plus, Save, Image, Upload 
 } from 'lucide-react';
+import ImageUploader from '../components/ImageUploader';
 
 interface Experience {
   id: string;
@@ -46,6 +47,10 @@ const EditExperience: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Image upload state
+  const [showImageUploader, setShowImageUploader] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState<number | null>(null);
 
   useEffect(() => {
     const fetchExperienceAndGuides = async () => {
@@ -164,15 +169,23 @@ const EditExperience: React.FC = () => {
     });
   };
 
-  // If not territory manager, redirect to home
-  if (user && profile && profile.role !== 'territory_manager') {
-    return <Navigate to="/" />;
-  }
+  const handleUploadImage = (index: number) => {
+    setCurrentImageIndex(index);
+    setShowImageUploader(true);
+  };
 
-  // If not logged in, redirect to login
-  if (!user) {
-    return <Navigate to="/login" />;
-  }
+  const handleImageUploaded = (url: string) => {
+    if (currentImageIndex !== null) {
+      const updatedUrls = [...experience.image_urls];
+      updatedUrls[currentImageIndex] = url;
+      setExperience({
+        ...experience,
+        image_urls: updatedUrls
+      });
+      setShowImageUploader(false);
+      setCurrentImageIndex(null);
+    }
+  };
 
   return (
     <div>
@@ -187,215 +200,6 @@ const EditExperience: React.FC = () => {
         <div className="bg-red-50 text-red-700 p-4 rounded-lg mb-6 flex items-start">
           <AlertCircle className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />
           <p>{error}</p>
-        </div>
-      )}
-      
-      {successMessage && (
-        <div className="bg-green-50 text-green-700 p-4 rounded-lg mb-6 flex items-start">
-          <Check className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />
-          <p>{successMessage}</p>
-        </div>
-      )}
-      
-      {isLoading ? (
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500"></div>
-        </div>
-      ) : (
-        <div className="bg-white rounded-xl shadow-md p-6">
-          <form onSubmit={handleSubmit}>
-            <div className="mb-6">
-              <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
-                Experience Title *
-              </label>
-              <input
-                id="title"
-                type="text"
-                value={experience.title}
-                onChange={(e) => setExperience({...experience, title: e.target.value})}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-                required
-              />
-            </div>
-            
-            <div className="mb-6">
-              <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-                Description *
-              </label>
-              <textarea
-                id="description"
-                rows={6}
-                value={experience.description}
-                onChange={(e) => setExperience({...experience, description: e.target.value})}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-                required
-              />
-            </div>
-            
-            <div className="mb-6">
-              <label htmlFor="guideId" className="block text-sm font-medium text-gray-700 mb-1">
-                Assign Guide *
-              </label>
-              <select
-                id="guideId"
-                value={experience.guide_id}
-                onChange={(e) => setExperience({...experience, guide_id: e.target.value})}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-                required
-              >
-                <option value="">-- Select Guide --</option>
-                {guides.map((guide) => (
-                  <option key={guide.id} value={guide.id}>
-                    {guide.full_name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-              <div>
-                <label htmlFor="price" className="block text-sm font-medium text-gray-700 mb-1">
-                  Price (USD) *
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <DollarSign className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <input
-                    id="price"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={experience.price}
-                    onChange={(e) => setExperience({...experience, price: parseFloat(e.target.value)})}
-                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-                    required
-                  />
-                </div>
-              </div>
-              
-              <div>
-                <label htmlFor="duration" className="block text-sm font-medium text-gray-700 mb-1">
-                  Duration (hours) *
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Clock className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <input
-                    id="duration"
-                    type="number"
-                    min="0.5"
-                    step="0.5"
-                    value={experience.duration}
-                    onChange={(e) => setExperience({...experience, duration: parseFloat(e.target.value)})}
-                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-                    required
-                  />
-                </div>
-              </div>
-              
-              <div>
-                <label htmlFor="maxSpots" className="block text-sm font-medium text-gray-700 mb-1">
-                  Max Spots *
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Users className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <input
-                    id="maxSpots"
-                    type="number"
-                    min="1"
-                    value={experience.max_spots}
-                    onChange={(e) => setExperience({...experience, max_spots: parseInt(e.target.value)})}
-                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-                    required
-                  />
-                </div>
-              </div>
-              
-              <div>
-                <label htmlFor="availableSpots" className="block text-sm font-medium text-gray-700 mb-1">
-                  Available Spots *
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Users className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <input
-                    id="availableSpots"
-                    type="number"
-                    min="0"
-                    max={experience.max_spots}
-                    value={experience.available_spots}
-                    onChange={(e) => setExperience({...experience, available_spots: parseInt(e.target.value)})}
-                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-                    required
-                  />
-                </div>
-                <p className="mt-1 text-xs text-gray-500">
-                  Cannot exceed maximum capacity
-                </p>
-              </div>
-            </div>
-            
-            <div className="mb-8">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Image URLs *
-              </label>
-              {experience.image_urls.map((url, index) => (
-                <div key={index} className="flex items-center mb-2">
-                  <div className="flex-grow mr-2 relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Image className="h-5 w-5 text-gray-400" />
-                    </div>
-                    <input
-                      type="url"
-                      value={url}
-                      onChange={(e) => handleImageUrlChange(index, e.target.value)}
-                      placeholder="https://example.com/image.jpg"
-                      className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-                      required={index === 0}
-                    />
-                  </div>
-                  {index > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveImageUrl(index)}
-                      className="text-red-600 hover:text-red-900"
-                    >
-                      <X className="h-5 w-5" />
-                    </button>
-                  )}
-                </div>
-              ))}
-              <button
-                type="button"
-                onClick={handleAddImageUrl}
-                className="mt-2 inline-flex items-center text-sm font-medium text-green-600 hover:text-green-700"
-              >
-                <Plus className="h-4 w-4 mr-1" />
-                Add Another Image
-              </button>
-            </div>
-            
-            <div className="flex justify-end space-x-3">
-              <Link
-                to="/territory-management"
-                className="bg-white border border-gray-300 text-gray-700 font-medium py-2 px-4 rounded-md hover:bg-gray-50"
-              >
-                Cancel
-              </Link>
-              <button
-                type="submit"
-                className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md flex items-center"
-              >
-                <Save className="h-4 w-4 mr-1" />
-                Save Changes
-              </button>
-            </div>
-          </form>
         </div>
       )}
     </div>

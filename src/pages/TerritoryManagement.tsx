@@ -3,8 +3,9 @@ import { Navigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
 import { 
-  Users, Map, User, AlertCircle, Check, X, Plus, Trash2, Edit, Image, DollarSign, Clock 
+  Users, Map, User, AlertCircle, Check, X, Plus, Trash2, Edit, Image, DollarSign, Clock, Upload 
 } from 'lucide-react';
+import ImageUploader from '../components/ImageUploader';
 
 interface TourGuide {
   id: string;
@@ -62,6 +63,10 @@ const TerritoryManagement: React.FC = () => {
     guideId: '',
     imageUrls: ['']
   });
+
+  // Image upload state
+  const [showImageUploader, setShowImageUploader] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState<number | null>(null);
 
   const fetchData = async () => {
     if (!profile?.territory_id) return;
@@ -270,7 +275,10 @@ const TerritoryManagement: React.FC = () => {
         `)
         .single();
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error adding experience:', error);
+        throw new Error('Failed to add experience. You may not have permission to create experiences.');
+      }
       
       // Add to local state
       if (data) {
@@ -293,7 +301,7 @@ const TerritoryManagement: React.FC = () => {
       }, 2000);
     } catch (error) {
       console.error('Error adding experience:', error);
-      setFormError('Failed to add experience. Please try again.');
+      setFormError(error instanceof Error ? error.message : 'Failed to add experience. Please try again.');
     }
   };
 
@@ -345,6 +353,24 @@ const TerritoryManagement: React.FC = () => {
       ...newExperience,
       imageUrls: updatedUrls
     });
+  };
+
+  const handleUploadImage = (index: number) => {
+    setCurrentImageIndex(index);
+    setShowImageUploader(true);
+  };
+
+  const handleImageUploaded = (url: string) => {
+    if (currentImageIndex !== null) {
+      const updatedUrls = [...newExperience.imageUrls];
+      updatedUrls[currentImageIndex] = url;
+      setNewExperience({
+        ...newExperience,
+        imageUrls: updatedUrls
+      });
+      setShowImageUploader(false);
+      setCurrentImageIndex(null);
+    }
   };
 
   // If not territory manager, redirect to home
@@ -728,8 +754,8 @@ const TerritoryManagement: React.FC = () => {
                         type="number"
                         min="0"
                         step="0.01"
-                        value={newExperience.price}
-                        onChange={(e) => setNewExperience({...newExperience, price: parseFloat(e.target.value)})}
+                        value={newExperience.price || 0}
+                        onChange={(e) => setNewExperience({...newExperience, price: parseFloat(e.target.value) || 0})}
                         className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
                         required
                       />
@@ -749,8 +775,8 @@ const TerritoryManagement: React.FC = () => {
                         type="number"
                         min="0.5"
                         step="0.5"
-                        value={newExperience.duration}
-                        onChange={(e) => setNewExperience({...newExperience, duration: parseFloat(e.target.value)})}
+                        value={newExperience.duration || 1}
+                        onChange={(e) => setNewExperience({...newExperience, duration: parseFloat(e.target.value) || 1})}
                         className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
                         required
                       />
@@ -769,8 +795,8 @@ const TerritoryManagement: React.FC = () => {
                         id="maxSpots"
                         type="number"
                         min="1"
-                        value={newExperience.maxSpots}
-                        onChange={(e) => setNewExperience({...newExperience, maxSpots: parseInt(e.target.value)})}
+                        value={newExperience.maxSpots || 10}
+                        onChange={(e) => setNewExperience({...newExperience, maxSpots: parseInt(e.target.value) || 10})}
                         className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
                         required
                       />
@@ -800,22 +826,40 @@ const TerritoryManagement: React.FC = () => {
                 
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Image URLs *
+                    Images *
                   </label>
                   {newExperience.imageUrls.map((url, index) => (
                     <div key={index} className="flex items-center mb-2">
-                      <div className="flex-grow mr-2 relative">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <Image className="h-5 w-5 text-gray-400" />
+                      <div className="flex-grow mr-2">
+                        <div className="flex items-center">
+                          <input
+                            type="url"
+                            value={url}
+                            onChange={(e) => handleImageUrlChange(index, e.target.value)}
+                            placeholder="https://example.com/image.jpg"
+                            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                            required={index === 0}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleUploadImage(index)}
+                            className="ml-2 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-3 rounded-md flex items-center"
+                          >
+                            <Upload className="h-4 w-4" />
+                          </button>
                         </div>
-                        <input
-                          type="url"
-                          value={url}
-                          onChange={(e) => handleImageUrlChange(index, e.target.value)}
-                          placeholder="https://example.com/image.jpg"
-                          className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-                          required={index === 0}
-                        />
+                        {url && (
+                          <div className="mt-1 h-16 w-full">
+                            <img 
+                              src={url} 
+                              alt={`Preview ${index + 1}`} 
+                              className="h-full object-cover rounded-md"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = 'https://via.placeholder.com/150?text=Invalid+Image+URL';
+                              }}
+                            />
+                          </div>
+                        )}
                       </div>
                       {index > 0 && (
                         <button
@@ -855,6 +899,30 @@ const TerritoryManagement: React.FC = () => {
                 </div>
               </form>
             )}
+          </div>
+        </div>
+      )}
+      
+      {/* Image Upload Modal */}
+      {showImageUploader && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <h2 className="text-xl font-bold mb-4">Upload Image</h2>
+            
+            <ImageUploader 
+              onImageUploaded={handleImageUploaded}
+              onError={(error) => setFormError(error)}
+            />
+            
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowImageUploader(false)}
+                className="bg-white border border-gray-300 text-gray-700 font-medium py-2 px-4 rounded-md hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}
