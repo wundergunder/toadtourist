@@ -34,10 +34,19 @@ const Login: React.FC = () => {
 
     try {
       await signIn(email, password);
-      navigate('/');
+      // Only navigate if there's no error
+      if (!error) {
+        navigate('/');
+      }
     } catch (err) {
       console.error('Login error:', err);
     }
+  };
+
+  // For demo purposes, add some sample credentials
+  const fillDemoCredentials = () => {
+    setEmail('admin@example.com');
+    setPassword('password123');
   };
 
   return (
@@ -101,6 +110,16 @@ const Login: React.FC = () => {
           >
             {isLoading ? 'Logging in...' : 'Log In'}
           </button>
+          
+          <div className="mt-4 text-center">
+            <button
+              type="button"
+              onClick={fillDemoCredentials}
+              className="text-sm text-green-600 hover:text-green-500"
+            >
+              Use demo credentials
+            </button>
+          </div>
         </form>
         
         <div className="mt-6 text-center">

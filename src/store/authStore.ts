@@ -35,7 +35,13 @@ export const useAuthStore = create<AuthState>((set) => ({
         password,
       });
 
-      if (error) throw error;
+      if (error) {
+        // Provide a more user-friendly error message
+        if (error.message === 'Invalid login credentials') {
+          throw new Error('Incorrect email or password. Please try again.');
+        }
+        throw error;
+      }
 
       // Fetch user profile
       if (data.user) {
@@ -45,7 +51,31 @@ export const useAuthStore = create<AuthState>((set) => ({
           .eq('id', data.user.id)
           .single();
 
-        if (profileError) throw profileError;
+        if (profileError) {
+          // If profile doesn't exist yet, create it
+          if (profileError.code === 'PGRST116') {
+            // Wait a moment for the trigger to create the profile
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Try fetching again
+            const { data: retryProfileData, error: retryError } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', data.user.id)
+              .single();
+              
+            if (retryError) throw retryError;
+            
+            set({ 
+              user: data.user, 
+              profile: retryProfileData as Profile,
+              isLoading: false 
+            });
+            return;
+          }
+          
+          throw profileError;
+        }
         
         set({ 
           user: data.user, 
@@ -77,7 +107,13 @@ export const useAuthStore = create<AuthState>((set) => ({
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        // Provide more user-friendly error messages
+        if (error.message.includes('already registered')) {
+          throw new Error('This email is already registered. Please use a different email or try logging in.');
+        }
+        throw error;
+      }
 
       if (data.user) {
         // Wait a moment for the trigger to create the profile
@@ -147,7 +183,31 @@ export const useAuthStore = create<AuthState>((set) => ({
           .eq('id', session.user.id)
           .single();
 
-        if (profileError) throw profileError;
+        if (profileError) {
+          // If profile doesn't exist yet, create it
+          if (profileError.code === 'PGRST116') {
+            // Wait a moment and try again
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Try fetching again
+            const { data: retryProfileData, error: retryError } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', session.user.id)
+              .single();
+              
+            if (retryError) throw retryError;
+            
+            set({ 
+              user: session.user, 
+              profile: retryProfileData as Profile,
+              isLoading: false 
+            });
+            return;
+          }
+          
+          throw profileError;
+        }
         
         set({ 
           user: session.user, 
