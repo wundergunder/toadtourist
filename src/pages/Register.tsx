@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { Mail, Lock, User, AlertCircle } from 'lucide-react';
+import { UserRole } from '../types/supabase';
 
 const ToadLogo = () => (
   <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -20,6 +21,7 @@ const Register: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [selectedRoles, setSelectedRoles] = useState<UserRole[]>(['tourist']);
   const [formError, setFormError] = useState('');
   const { signUp, isLoading, error } = useAuthStore();
   const navigate = useNavigate();
@@ -39,10 +41,20 @@ const Register: React.FC = () => {
     }
 
     try {
-      await signUp(email, password, fullName, 'tourist');
+      await signUp(email, password, fullName, selectedRoles);
       navigate('/');
     } catch (err) {
       console.error('Registration error:', err);
+    }
+  };
+
+  const toggleRole = (role: UserRole) => {
+    if (role === 'tourist') return; // Tourist role is always required
+
+    if (selectedRoles.includes(role)) {
+      setSelectedRoles(selectedRoles.filter(r => r !== role));
+    } else {
+      setSelectedRoles([...selectedRoles, role]);
     }
   };
 
@@ -100,7 +112,7 @@ const Register: React.FC = () => {
             </div>
           </div>
           
-          <div className="mb-6">
+          <div className="mb-4">
             <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
               Password
             </label>
@@ -119,6 +131,53 @@ const Register: React.FC = () => {
             </div>
             <p className="mt-1 text-xs text-gray-500">
               Password must be at least 6 characters
+            </p>
+          </div>
+          
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Roles (Select all that apply)
+            </label>
+            <div className="space-y-2">
+              <div className="flex items-center">
+                <input
+                  id="role-tourist"
+                  type="checkbox"
+                  checked={true}
+                  disabled={true}
+                  className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                />
+                <label htmlFor="role-tourist" className="ml-2 block text-sm text-gray-700">
+                  Tourist (Required)
+                </label>
+              </div>
+              <div className="flex items-center">
+                <input
+                  id="role-guide"
+                  type="checkbox"
+                  checked={selectedRoles.includes('tour_guide')}
+                  onChange={() => toggleRole('tour_guide')}
+                  className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                />
+                <label htmlFor="role-guide" className="ml-2 block text-sm text-gray-700">
+                  Tour Guide
+                </label>
+              </div>
+              <div className="flex items-center">
+                <input
+                  id="role-manager"
+                  type="checkbox"
+                  checked={selectedRoles.includes('territory_manager')}
+                  onChange={() => toggleRole('territory_manager')}
+                  className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                />
+                <label htmlFor="role-manager" className="ml-2 block text-sm text-gray-700">
+                  Territory Manager
+                </label>
+              </div>
+            </div>
+            <p className="mt-1 text-xs text-gray-500">
+              Note: Admin role can only be assigned by existing admins
             </p>
           </div>
           

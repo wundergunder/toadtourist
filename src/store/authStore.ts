@@ -1,12 +1,13 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { User } from '@supabase/supabase-js';
+import { UserRole } from '../types/supabase';
 
 interface Profile {
   id: string;
   email: string;
   full_name: string;
-  role: 'admin' | 'territory_manager' | 'tour_guide' | 'tourist';
+  roles: UserRole[];
   territory_id: string | null;
   avatar_url: string | null;
   bio: string | null;
@@ -18,11 +19,14 @@ interface AuthState {
   isLoading: boolean;
   error: string | null;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, fullName: string, role: 'tourist') => Promise<void>;
+  signUp: (email: string, password: string, fullName: string, roles: UserRole[]) => Promise<void>;
   signOut: () => Promise<void>;
   loadUser: () => Promise<void>;
   updateProfile: (updates: Partial<Profile>) => Promise<void>;
   updateAvatar: (avatarUrl: string) => Promise<void>;
+  addRole: (role: UserRole) => Promise<void>;
+  removeRole: (role: UserRole) => Promise<void>;
+  hasRole: (role: UserRole) => boolean;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -95,9 +99,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  signUp: async (email, password, fullName, role) => {
+  signUp: async (email, password, fullName, roles) => {
     try {
       set({ isLoading: true, error: null });
+      
+      // Ensure tourist role is always included
+      if (!roles.includes('tourist')) {
+        roles.push('tourist');
+      }
       
       // Sign up with user metadata
       const { data, error } = await supabase.auth.signUp({
@@ -106,7 +115,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         options: {
           data: {
             full_name: fullName,
-            role: role
+            roles: roles
           }
         }
       });
@@ -139,7 +148,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               id: data.user.id,
               email,
               full_name: fullName,
-              role,
+              roles,
               territory_id: null,
               avatar_url: null,
               bio: null
@@ -285,5 +294,91 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isLoading: false 
       });
     }
+  },
+
+  addRole: async (role) => {
+    try {
+      const { user, profile } = get();
+      if (!user || !profile) throw new Error('You must be logged in to update roles');
+
+      set({ isLoading: true, error: null });
+
+      // Check if role already exists
+      if (profile.roles.includes(role)) {
+        set({ isLoading: false });
+        return;
+      }
+
+      // Add the new role
+      const updatedRoles = [...profile.roles, role];
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({ roles: updatedRoles })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      // Update local state
+      set({ 
+        profile: { ...profile, roles: updatedRoles },
+        isLoading: false 
+      });
+    } catch (error) {
+      set({ 
+        error: error instanceof Error ? error.message : 'An error occurred adding role', 
+        isLoading: false 
+      });
+    }
+  },
+
+  removeRole: async (role) => {
+    try {
+      const { user, profile } = get();
+      if (!user || !profile) throw new Error('You must be logged in to update roles');
+
+      set({ isLoading: true, error: null });
+
+      // Don't allow removing the tourist role
+      if (role === 'tourist') {
+        set({ 
+          error: 'Cannot remove the tourist role as it is required',
+          isLoading: false 
+        });
+        return;
+      }
+
+      // Check if role exists
+      if (!profile.roles.includes(role)) {
+        set({ isLoading: false });
+        return;
+      }
+
+      // Remove the role
+      const updatedRoles = profile.roles.filter(r => r !== role);
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({ roles: updatedRoles })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      // Update local state
+      set({ 
+        profile: { ...profile, roles: updatedRoles },
+        isLoading: false 
+      });
+    } catch (error) {
+      set({ 
+        error: error instanceof Error ? error.message : 'An error occurred removing role', 
+        isLoading: false 
+      });
+    }
+  },
+
+  hasRole: (role) => {
+    const { profile } = get();
+    return profile ? profile.roles.includes(role) : false;
   }
 }));

@@ -17,24 +17,25 @@ import EditExperience from './pages/EditExperience';
 import EditGuide from './pages/EditGuide';
 import GuideDashboard from './pages/GuideDashboard';
 import UserProfile from './pages/UserProfile';
+import { UserRole } from './types/supabase';
 
 // Protected Route Component
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  allowedRoles?: Array<'admin' | 'territory_manager' | 'tour_guide' | 'tourist'>;
+  allowedRoles?: UserRole[];
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ 
   children, 
   allowedRoles 
 }) => {
-  const { user, profile } = useAuthStore();
+  const { user, profile, hasRole } = useAuthStore();
   
   if (!user) {
     return <Navigate to="/login" />;
   }
   
-  if (allowedRoles && profile && !allowedRoles.includes(profile.role)) {
+  if (allowedRoles && profile && !allowedRoles.some(role => hasRole(role))) {
     return <Navigate to="/" />;
   }
   
@@ -66,7 +67,7 @@ function App() {
           } />
           
           <Route path="bookings" element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['tourist']}>
               <Bookings />
             </ProtectedRoute>
           } />

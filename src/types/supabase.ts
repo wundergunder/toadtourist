@@ -6,6 +6,8 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
+export type UserRole = 'admin' | 'territory_manager' | 'tour_guide' | 'tourist';
+
 export interface Database {
   public: {
     Tables: {
@@ -37,7 +39,7 @@ export interface Database {
           id: string
           email: string
           full_name: string
-          role: 'admin' | 'territory_manager' | 'tour_guide' | 'tourist'
+          roles: UserRole[]
           territory_id: string | null
           created_at: string
           avatar_url: string | null
@@ -47,7 +49,7 @@ export interface Database {
           id: string
           email: string
           full_name: string
-          role: 'admin' | 'territory_manager' | 'tour_guide' | 'tourist'
+          roles: UserRole[]
           territory_id?: string | null
           created_at?: string
           avatar_url?: string | null
@@ -57,11 +59,31 @@ export interface Database {
           id?: string
           email?: string
           full_name?: string
-          role?: 'admin' | 'territory_manager' | 'tour_guide' | 'tourist'
+          roles?: UserRole[]
           territory_id?: string | null
           created_at?: string
           avatar_url?: string | null
           bio?: string | null
+        }
+      }
+      user_roles: {
+        Row: {
+          id: string
+          user_id: string
+          role: UserRole
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          role: UserRole
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          role?: UserRole
+          created_at?: string
         }
       }
       experiences: {

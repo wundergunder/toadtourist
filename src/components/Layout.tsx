@@ -17,7 +17,7 @@ const ToadLogo = () => (
 );
 
 const Layout: React.FC = () => {
-  const { user, profile, signOut } = useAuthStore();
+  const { user, profile, signOut, hasRole } = useAuthStore();
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
@@ -36,8 +36,6 @@ const Layout: React.FC = () => {
     navigate('/profile');
     setIsProfileMenuOpen(false);
   };
-
-  const isTourist = profile?.role === 'tourist';
 
   // Close profile menu when clicking outside
   useEffect(() => {
@@ -64,22 +62,22 @@ const Layout: React.FC = () => {
           
           <div className="hidden md:flex items-center space-x-6">
             <Link to="/" className="hover:text-green-200">Home</Link>
-            {isTourist && (
+            {hasRole('tourist') && (
               <Link to="/regions" className="hover:text-green-200">Regions</Link>
             )}
             
             {user ? (
               <>
-                {profile?.role === 'admin' && (
+                {hasRole('admin') && (
                   <Link to="/admin" className="hover:text-green-200">Admin</Link>
                 )}
-                {profile?.role === 'territory_manager' && (
+                {hasRole('territory_manager') && (
                   <Link to="/territory-management" className="hover:text-green-200">Manage Region</Link>
                 )}
-                {profile?.role === 'tour_guide' && (
+                {hasRole('tour_guide') && (
                   <Link to="/guide-dashboard" className="hover:text-green-200">Guide Dashboard</Link>
                 )}
-                {isTourist && (
+                {hasRole('tourist') && (
                   <Link to="/bookings" className="hover:text-green-200">My Bookings</Link>
                 )}
                 <div className="flex items-center space-x-4 relative" ref={profileMenuRef}>
@@ -144,22 +142,22 @@ const Layout: React.FC = () => {
           <div className="md:hidden bg-green-700 px-4 py-2">
             <div className="flex flex-col space-y-3">
               <Link to="/" className="text-white hover:text-green-200">Home</Link>
-              {isTourist && (
+              {hasRole('tourist') && (
                 <Link to="/regions" className="text-white hover:text-green-200">Regions</Link>
               )}
               
               {user ? (
                 <>
-                  {profile?.role === 'admin' && (
+                  {hasRole('admin') && (
                     <Link to="/admin" className="text-white hover:text-green-200">Admin</Link>
                   )}
-                  {profile?.role === 'territory_manager' && (
+                  {hasRole('territory_manager') && (
                     <Link to="/territory-management" className="text-white hover:text-green-200">Manage Region</Link>
                   )}
-                  {profile?.role === 'tour_guide' && (
+                  {hasRole('tour_guide') && (
                     <Link to="/guide-dashboard" className="text-white hover:text-green-200">Guide Dashboard</Link>
                   )}
-                  {isTourist && (
+                  {hasRole('tourist') && (
                     <Link to="/bookings" className="text-white hover:text-green-200">My Bookings</Link>
                   )}
                   <button 
