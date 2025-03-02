@@ -24,9 +24,10 @@ interface AuthState {
   loadUser: () => Promise<void>;
   updateProfile: (updates: Partial<Profile>) => Promise<void>;
   updateAvatar: (avatarUrl: string) => Promise<void>;
-  addRole: (role: UserRole) => Promise<void>;
-  removeRole: (role: UserRole) => Promise<void>;
+  addRole: (role: UserRole, userId?: string) => Promise<void>;
+  removeRole: (role: UserRole, userId?: string) => Promise<void>;
   hasRole: (role: UserRole) => boolean;
+  canManageUser: (userId: string) => boolean;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -369,16 +370,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       set({ isLoading: true, error: null });
 
+      // Don't allow changing roles through this method
+      const { roles, ...safeUpdates } = updates;
+
       const { error } = await supabase
         .from('profiles')
-        .update(updates)
+        .update(safeUpdates)
         .eq('id', user.id);
 
       if (error) throw error;
 
       // Update local state
       set({ 
-        profile: { ...profile, ...updates },
+        profile: { ...profile, ...safeUpdates },
         isLoading: false 
       });
     } catch (error) {
@@ -416,34 +420,82 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  addRole: async (role) => {
+  // Check if the current user can manage another user
+  canManageUser: (userId) => {
+    const { profile } = get();
+    if (!profile) return false;
+
+    // Admins can manage all users
+    if (profile.roles.includes('admin')) return true;
+
+    // Territory managers can only manage users in their territory
+    if (profile.roles.includes('territory_manager') && profile.territory_id) {
+      // Need to check if the target user is in the same territory
+      // This would require a separate query, so we'll handle this in the component
+      return true;
+    }
+
+    // Users can't manage other users
+    return false;
+  },
+
+  addRole: async (role, userId) => {
     try {
       const { user, profile } = get();
       if (!user || !profile) throw new Error('You must be logged in to update roles');
 
+      // Determine the target user ID
+      const targetUserId = userId || user.id;
+      
+      // Check permissions
+      if (targetUserId !== user.id) {
+        // Trying to modify someone else's roles
+        if (!get().canManageUser(targetUserId)) {
+          throw new Error('You do not have permission to modify this user\'s roles');
+        }
+      } else {
+        // Trying to modify own roles
+        if (role === 'admin' || role === 'territory_manager') {
+          throw new Error('You cannot assign yourself the admin or territory manager role');
+        }
+      }
+
       set({ isLoading: true, error: null });
 
+      // Fetch the target user's current roles
+      const { data: targetProfile, error: fetchError } = await supabase
+        .from('profiles')
+        .select('roles')
+        .eq('id', targetUserId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
       // Check if role already exists
-      if (profile.roles.includes(role)) {
+      if (targetProfile.roles.includes(role)) {
         set({ isLoading: false });
         return;
       }
 
       // Add the new role
-      const updatedRoles = [...profile.roles, role];
+      const updatedRoles = [...targetProfile.roles, role];
 
       const { error } = await supabase
         .from('profiles')
         .update({ roles: updatedRoles })
-        .eq('id', user.id);
+        .eq('id', targetUserId);
 
       if (error) throw error;
 
-      // Update local state
-      set({ 
-        profile: { ...profile, roles: updatedRoles },
-        isLoading: false 
-      });
+      // Update local state if it's the current user
+      if (targetUserId === user.id) {
+        set({ 
+          profile: { ...profile, roles: updatedRoles },
+          isLoading: false 
+        });
+      } else {
+        set({ isLoading: false });
+      }
     } catch (error) {
       set({ 
         error: error instanceof Error ? error.message : 'An error occurred adding role', 
@@ -452,10 +504,24 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  removeRole: async (role) => {
+  removeRole: async (role, userId) => {
     try {
       const { user, profile } = get();
       if (!user || !profile) throw new Error('You must be logged in to update roles');
+
+      // Determine the target user ID
+      const targetUserId = userId || user.id;
+      
+      // Check permissions
+      if (targetUserId !== user.id) {
+        // Trying to modify someone else's roles
+        if (!get().canManageUser(targetUserId)) {
+          throw new Error('You do not have permission to modify this user\'s roles');
+        }
+      } else {
+        // Trying to modify own roles
+        throw new Error('You cannot remove your own roles');
+      }
 
       set({ isLoading: true, error: null });
 
@@ -468,27 +534,40 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return;
       }
 
+      // Fetch the target user's current roles
+      const { data: targetProfile, error: fetchError } = await supabase
+        .from('profiles')
+        .select('roles')
+        .eq('id', targetUserId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
       // Check if role exists
-      if (!profile.roles.includes(role)) {
+      if (!targetProfile.roles.includes(role)) {
         set({ isLoading: false });
         return;
       }
 
       // Remove the role
-      const updatedRoles = profile.roles.filter(r => r !== role);
+      const updatedRoles = targetProfile.roles.filter(r => r !== role);
 
       const { error } = await supabase
         .from('profiles')
         .update({ roles: updatedRoles })
-        .eq('id', user.id);
+        .eq('id', targetUserId);
 
       if (error) throw error;
 
-      // Update local state
-      set({ 
-        profile: { ...profile, roles: updatedRoles },
-        isLoading: false 
-      });
+      // Update local state if it's the current user
+      if (targetUserId === user.id) {
+        set({ 
+          profile: { ...profile, roles: updatedRoles },
+          isLoading: false 
+        });
+      } else {
+        set({ isLoading: false });
+      }
     } catch (error) {
       set({ 
         error: error instanceof Error ? error.message : 'An error occurred removing role', 

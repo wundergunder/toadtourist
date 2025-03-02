@@ -10,7 +10,7 @@ import { UserRole } from '../types/supabase';
 
 const UserProfile: React.FC = () => {
   const navigate = useNavigate();
-  const { user, profile, updateProfile, updateAvatar, addRole, removeRole, hasRole } = useAuthStore();
+  const { user, profile, updateProfile, updateAvatar, hasRole } = useAuthStore();
   
   const [isEditing, setIsEditing] = useState(false);
   const [fullName, setFullName] = useState('');
@@ -19,7 +19,6 @@ const UserProfile: React.FC = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [isEditingRoles, setIsEditingRoles] = useState(false);
 
   useEffect(() => {
     if (profile) {
@@ -118,37 +117,6 @@ const UserProfile: React.FC = () => {
       setError(error instanceof Error ? error.message : 'Failed to upload avatar');
     } finally {
       setIsUploading(false);
-    }
-  };
-
-  const handleToggleRole = async (role: UserRole) => {
-    try {
-      setError(null);
-      
-      if (role === 'tourist') {
-        setError('Cannot remove the tourist role as it is required');
-        return;
-      }
-      
-      if (role === 'admin' && !hasRole('admin')) {
-        setError('Admin role can only be assigned by existing admins');
-        return;
-      }
-      
-      if (hasRole(role)) {
-        await removeRole(role);
-        setSuccessMessage(`${role.replace('_', ' ')} role removed successfully`);
-      } else {
-        await addRole(role);
-        setSuccessMessage(`${role.replace('_', ' ')} role added successfully`);
-      }
-      
-      setTimeout(() => {
-        setSuccessMessage(null);
-      }, 3000);
-    } catch (error) {
-      console.error('Error updating roles:', error);
-      setError(error instanceof Error ? error.message : 'Failed to update roles');
     }
   };
 
@@ -260,7 +228,7 @@ const UserProfile: React.FC = () => {
                   id="bio"
                   rows={4}
                   value={bio}
-                   onChange={(e) => setBio(e.target.value)}
+                  onChange={(e) => setBio(e.target.value)}
                   placeholder="Tell us a bit about yourself..."
                   className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
                 />
@@ -291,99 +259,22 @@ const UserProfile: React.FC = () => {
       <div className="bg-white rounded-xl shadow-md overflow-hidden mt-6 p-6">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold">My Roles</h2>
-          <button
-            onClick={() => setIsEditingRoles(!isEditingRoles)}
-            className="text-green-600 hover:text-green-700"
-          >
-            {isEditingRoles ? (
-              <X className="h-5 w-5" />
-            ) : (
-              <Edit className="h-5 w-5" />
-            )}
-          </button>
         </div>
         
-        {isEditingRoles ? (
-          <div className="space-y-3">
-            <div className="flex items-center">
-              <input
-                id="role-tourist"
-                type="checkbox"
-                checked={true}
-                disabled={true}
-                className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
-              />
-              <label htmlFor="role-tourist" className="ml-2 block text-sm text-gray-700">
-                Tourist (Required)
-              </label>
+        <div className="flex flex-wrap gap-2">
+          {profile.roles.map((role) => (
+            <div 
+              key={role} 
+              className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800"
+            >
+              <Shield className="h-4 w-4 mr-1" />
+              {formatRoleName(role)}
             </div>
-            <div className="flex items-center">
-              <input
-                id="role-guide"
-                type="checkbox"
-                checked={hasRole('tour_guide')}
-                onChange={() => handleToggleRole('tour_guide')}
-                className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
-              />
-              <label htmlFor="role-guide" className="ml-2 block text-sm text-gray-700">
-                Tour Guide
-              </label>
-            </div>
-            <div className="flex items-center">
-              <input
-                id="role-manager"
-                type="checkbox"
-                checked={hasRole('territory_manager')}
-                onChange={() => handleToggleRole('territory_manager')}
-                className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
-              />
-              <label htmlFor="role-manager" className="ml-2 block text-sm text-gray-700">
-                Territory Manager
-              </label>
-            </div>
-            <div className="flex items-center">
-              <input
-                id="role-hotel"
-                type="checkbox"
-                checked={hasRole('hotel_operator')}
-                onChange={() => handleToggleRole('hotel_operator')}
-                className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
-              />
-              <label htmlFor="role-hotel" className="ml-2 block text-sm text-gray-700">
-                Hotel Operator
-              </label>
-            </div>
-            {hasRole('admin') && (
-              <div className="flex items-center">
-                <input
-                  id="role-admin"
-                  type="checkbox"
-                  checked={hasRole('admin')}
-                  onChange={() => handleToggleRole('admin')}
-                  className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
-                />
-                <label htmlFor="role-admin" className="ml-2 block text-sm text-gray-700">
-                  Admin
-                </label>
-              </div>
-            )}
-            <p className="text-xs text-gray-500 mt-2">
-              Note: Admin role can only be assigned by existing admins
-            </p>
-          </div>
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            {profile.roles.map((role) => (
-              <div 
-                key={role} 
-                className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800"
-              >
-                <Shield className="h-4 w-4 mr-1" />
-                {formatRoleName(role)}
-              </div>
-            ))}
-          </div>
-        )}
+          ))}
+        </div>
+        <p className="text-xs text-gray-500 mt-2">
+          Note: Roles can only be changed by administrators or territory managers
+        </p>
       </div>
       
       {/* Activity Statistics */}
