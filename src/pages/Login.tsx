@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { Mail, Lock, AlertCircle } from 'lucide-react';
 
@@ -22,6 +22,16 @@ const Login: React.FC = () => {
   const [formError, setFormError] = useState('');
   const { signIn, isLoading, error } = useAuthStore();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Check for redirect after login
+  useEffect(() => {
+    const redirectPath = localStorage.getItem('redirectAfterLogin');
+    if (redirectPath) {
+      // Clear it immediately to prevent unwanted redirects
+      localStorage.removeItem('redirectAfterLogin');
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,7 +46,14 @@ const Login: React.FC = () => {
       await signIn(email, password);
       // Only navigate if there's no error
       if (!error) {
-        navigate('/');
+        // Check if there's a redirect path stored
+        const redirectPath = localStorage.getItem('redirectAfterLogin');
+        if (redirectPath) {
+          localStorage.removeItem('redirectAfterLogin');
+          navigate(redirectPath);
+        } else {
+          navigate('/');
+        }
       }
     } catch (err) {
       console.error('Login error:', err);

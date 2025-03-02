@@ -150,6 +150,7 @@ const HotelOperatorDashboard: React.FC = () => {
         .insert({
           user_id: user!.id,
           name: newLinkName,
+          code: await generateUniqueCode(),
           active: true
         })
         .select()
@@ -169,6 +170,31 @@ const HotelOperatorDashboard: React.FC = () => {
       console.error('Error creating referral link:', error);
       setError('Failed to create referral link. Please try again.');
     }
+  };
+
+  // Generate a unique code client-side
+  const generateUniqueCode = async (): Promise<string> => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    
+    // Generate a 6-character code
+    for (let i = 0; i < 6; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    
+    // Check if the code already exists
+    const { data } = await supabase
+      .from('referral_links')
+      .select('code')
+      .eq('code', result)
+      .single();
+    
+    // If the code exists, generate a new one
+    if (data) {
+      return generateUniqueCode();
+    }
+    
+    return result;
   };
 
   const handleEditLink = async () => {

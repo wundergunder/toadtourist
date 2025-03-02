@@ -138,7 +138,7 @@ const TerritoryManagement: React.FC = () => {
     if (user && hasRole('territory_manager')) {
       fetchData();
     }
-  }, [user, profile]);
+  }, [user]);
 
   const handleAddGuide = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -172,7 +172,7 @@ const TerritoryManagement: React.FC = () => {
         return;
       }
       
-      // Create user in auth with metadata that includes the territory_id
+      // Create user in auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -185,13 +185,7 @@ const TerritoryManagement: React.FC = () => {
         }
       });
       
-      if (authError) {
-        if (authError.message.includes('already registered')) {
-          setFormError('A user with this email already exists. Please use a different email address.');
-          return;
-        }
-        throw authError;
-      }
+      if (authError) throw authError;
       
       if (authData.user) {
         // Wait for the trigger to create the profile
@@ -381,10 +375,7 @@ const TerritoryManagement: React.FC = () => {
         `)
         .single();
       
-      if (error) {
-        console.error('Error adding experience:', error);
-        throw new Error('Failed to add experience. You may not have permission to create experiences.');
-      }
+      if (error) throw error;
       
       // Add to local state
       if (data) {
@@ -407,7 +398,7 @@ const TerritoryManagement: React.FC = () => {
       }, 2000);
     } catch (error) {
       console.error('Error adding experience:', error);
-      setFormError(error instanceof Error ? error.message : 'Failed to add experience. Please try again.');
+      setFormError('Failed to add experience. Please try again.');
     }
   };
 
@@ -523,6 +514,7 @@ const TerritoryManagement: React.FC = () => {
       duration: 3,
       max_spots: 12,
       available_spots: 8,
+      territory_id: 'rio-dulce',
       guide_id: 'guide-1',
       profiles: {
         full_name: 'Carlos Mendez'
@@ -536,6 +528,7 @@ const TerritoryManagement: React.FC = () => {
       duration: 4,
       max_spots: 8,
       available_spots: 4,
+      territory_id: 'rio-dulce',
       guide_id: 'guide-2',
       profiles: {
         full_name: 'Elena Fuentes'
@@ -630,37 +623,37 @@ const TerritoryManagement: React.FC = () => {
                           <div className="space-y-1">
                             <div className="flex items-center">
                               <input
-                                id={`role-tourist-${guide.id}`}
+                                id={"role-tourist-" + guide.id}
                                 type="checkbox"
                                 checked={true}
                                 disabled={true}
                                 className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
                               />
-                              <label htmlFor={`role-tourist-${guide.id}`} className="ml-2 block text-sm text-gray-700">
+                              <label htmlFor={"role-tourist-" + guide.id} className="ml-2 block text-sm text-gray-700">
                                 Tourist
                               </label>
                             </div>
                             <div className="flex items-center">
                               <input
-                                id={`role-guide-${guide.id}`}
+                                id={"role-guide-" + guide.id}
                                 type="checkbox"
                                 checked={editGuide.roles.includes('tour_guide')}
                                 onChange={() => handleToggleRole('tour_guide')}
                                 className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
                               />
-                              <label htmlFor={`role-guide-${guide.id}`} className="ml-2 block text-sm text-gray-700">
+                              <label htmlFor={"role-guide-" + guide.id} className="ml-2 block text-sm text-gray-700">
                                 Tour Guide
                               </label>
                             </div>
                             <div className="flex items-center">
                               <input
-                                id={`role-hotel-${guide.id}`}
+                                id={"role-hotel-" + guide.id}
                                 type="checkbox"
                                 checked={editGuide.roles.includes('hotel_operator')}
                                 onChange={() => handleToggleRole('hotel_operator')}
                                 className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
                               />
-                              <label htmlFor={`role-hotel-${guide.id}`} className="ml-2 block text-sm text-gray-700">
+                              <label htmlFor={"role-hotel-" + guide.id} className="ml-2 block text-sm text-gray-700">
                                 Hotel Operator
                               </label>
                             </div>
@@ -694,7 +687,7 @@ const TerritoryManagement: React.FC = () => {
                           )}
                           <button
                             onClick={() => handleRemoveGuide(guide.id)}
-                            className="text-red-600 hover:text-red-900"
+                            className="text-red-600 hover:text-red-700"
                           >
                             <Trash2 className="h-5 w-5" />
                           </button>
@@ -983,7 +976,7 @@ const TerritoryManagement: React.FC = () => {
                   </div>
                 </div>
                 
-                <div className="mb -4">
+                <div className="mb-4">
                   <label htmlFor="guideId" className="block text-sm font-medium text-gray-700 mb-1">
                     Assign Guide *
                   </label>
