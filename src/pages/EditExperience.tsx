@@ -23,12 +23,13 @@ interface Experience {
 interface Guide {
   id: string;
   full_name: string;
+  roles: string[];
 }
 
 const EditExperience: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { user, profile } = useAuthStore();
+  const { user, profile, hasRole } = useAuthStore();
   
   const [experience, setExperience] = useState<Experience>({
     id: '',
@@ -78,9 +79,9 @@ const EditExperience: React.FC = () => {
         // Fetch guides for this territory
         const { data: guidesData, error: guidesError } = await supabase
           .from('profiles')
-          .select('id, full_name')
-          .eq('role', 'tour_guide')
-          .eq('territory_id', profile.territory_id);
+          .select('id, full_name, roles')
+          .eq('territory_id', profile.territory_id)
+          .contains('roles', ['tour_guide']);
         
         if (guidesError) throw guidesError;
         setGuides(guidesData || []);
@@ -92,10 +93,10 @@ const EditExperience: React.FC = () => {
       }
     };
 
-    if (user && profile?.role === 'territory_manager') {
+    if (user && hasRole('territory_manager')) {
       fetchExperienceAndGuides();
     }
-  }, [id, user, profile]);
+  }, [id, user, profile, hasRole]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -200,6 +201,252 @@ const EditExperience: React.FC = () => {
         <div className="bg-red-50 text-red-700 p-4 rounded-lg mb-6 flex items-start">
           <AlertCircle className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />
           <p>{error}</p>
+        </div>
+      )}
+      
+      {successMessage && (
+        <div className="bg-green-50 text-green-700 p-4 rounded-lg mb-6 flex items-start">
+          <Check className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />
+          <p>{successMessage}</p>
+        </div>
+      )}
+      
+      {isLoading ? (
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500"></div>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-md p-6">
+          <div className="mb-6">
+            <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
+              Experience Title *
+            </label>
+            <input
+              id="title"
+              type="text"
+              value={experience.title}
+              onChange={(e) => setExperience({...experience, title: e.target.value})}
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+              required
+            />
+          </div>
+          
+          <div className="mb-6">
+            <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
+              Description *
+            </label>
+            <textarea
+              id="description"
+              rows={6}
+              value={experience.description}
+              onChange={(e) => setExperience({...experience, description: e.target.value})}
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+              required
+            />
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div>
+              <label htmlFor="price" className="block text-sm font-medium text-gray-700 mb-1">
+                Price (USD) *
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <DollarSign className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  id="price"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={experience.price}
+                  onChange={(e) => setExperience({...experience, price: parseFloat(e.target.value) || 0})}
+                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                  required
+                />
+              </div>
+            </div>
+            
+            <div>
+              <label htmlFor="duration" className="block text-sm font-medium text-gray-700 mb-1">
+                Duration (hours) *
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Clock className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  id="duration"
+                  type="number"
+                  min="0.5"
+                  step="0.5"
+                  value={experience.duration}
+                  onChange={(e) => setExperience({...experience, duration: parseFloat(e.target.value) || 0})}
+                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                  required
+                />
+              </div>
+            </div>
+            
+            <div>
+              <label htmlFor="maxSpots" className="block text-sm font-medium text-gray-700 mb-1">
+                Maximum Spots *
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Users className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  id="maxSpots"
+                  type="number"
+                  min="1"
+                  value={experience.max_spots}
+                  onChange={(e) => setExperience({...experience, max_spots: parseInt(e.target.value) || 0})}
+                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                  required
+                />
+              </div>
+            </div>
+            
+            <div>
+              <label htmlFor="availableSpots" className="block text-sm font-medium text-gray-700 mb-1">
+                Available Spots *
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Users className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  id="availableSpots"
+                  type="number"
+                  min="0"
+                  max={experience.max_spots}
+                  value={experience.available_spots}
+                  onChange={(e) => setExperience({...experience, available_spots: parseInt(e.target.value) || 0})}
+                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                  required
+                />
+              </div>
+            </div>
+          </div>
+          
+          <div className="mb-6">
+            <label htmlFor="guideId" className="block text-sm font-medium text-gray-700 mb-1">
+              Assign Guide *
+            </label>
+            <select
+              id="guideId"
+              value={experience.guide_id}
+              onChange={(e) => setExperience({...experience, guide_id: e.target.value})}
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+              required
+            >
+              <option value="">-- Select Guide --</option>
+              {guides.map((guide) => (
+                <option key={guide.id} value={guide.id}>
+                  {guide.full_name}
+                </option>
+              ))}
+            </select>
+          </div>
+          
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Images *
+            </label>
+            {experience.image_urls.map((url, index) => (
+              <div key={index} className="flex items-center mb-2">
+                <div className="flex-grow mr-2">
+                  <div className="flex items-center">
+                    <input
+                      type="url"
+                      value={url}
+                      onChange={(e) => handleImageUrlChange(index, e.target.value)}
+                      placeholder="https://example.com/image.jpg"
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                      required={index === 0}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleUploadImage(index)}
+                      className="ml-2 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-3 rounded-md flex items-center"
+                    >
+                      <Upload className="h-4 w-4" />
+                    </button>
+                  </div>
+                  {url && (
+                    <div className="mt-1 h-16 w-full">
+                      <img 
+                        src={url} 
+                        alt={`Preview ${index + 1}`} 
+                        className="h-full object-cover rounded-md"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = 'https://via.placeholder.com/150?text=Invalid+Image+URL';
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+                {index > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveImageUrl(index)}
+                    className="text-red-600 hover:text-red-900"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                )}
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={handleAddImageUrl}
+              className="mt-2 inline-flex items-center text-sm font-medium text-green-600 hover:text-green-700"
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Add Another Image
+            </button>
+          </div>
+          
+          <div className="flex justify-end space-x-3">
+            <Link
+              to="/territory-management"
+              className="bg-white border border-gray-300 text-gray-700 font-medium py-2 px-4 rounded-md hover:bg-gray-50"
+            >
+              Cancel
+            </Link>
+            <button
+              type="submit"
+              className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md flex items-center"
+            >
+              <Save className="h-4 w-4 mr-1" />
+              Save Changes
+            </button>
+          </div>
+        </form>
+      )}
+      
+      {/* Image Upload Modal */}
+      {showImageUploader && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <h2 className="text-xl font-bold mb-4">Upload Image</h2>
+            
+            <ImageUploader 
+              onImageUploaded={handleImageUploaded}
+              onError={(error) => setError(error)}
+            />
+            
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowImageUploader(false)}
+                className="bg-white border border-gray-300 text-gray-700 font-medium py-2 px-4 rounded-md hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
