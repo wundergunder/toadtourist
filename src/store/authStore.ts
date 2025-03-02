@@ -53,43 +53,80 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       // Fetch user profile
       if (data.user) {
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', data.user.id)
-          .single();
+        try {
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', data.user.id)
+            .maybeSingle();
 
-        if (profileError) {
-          // If profile doesn't exist yet, create it
-          if (profileError.code === 'PGRST116') {
-            // Wait a moment for the trigger to create the profile
-            await new Promise(resolve => setTimeout(resolve, 1000));
+          if (profileError && profileError.code !== 'PGRST116') {
+            throw profileError;
+          }
+          
+          if (!profileData) {
+            // If no profile found, create a default one
+            console.log("No profile found, creating default profile");
+            const defaultProfile: Profile = {
+              id: data.user.id,
+              email: data.user.email || '',
+              full_name: data.user.user_metadata.full_name || 'User',
+              roles: ['tourist'],
+              territory_id: null,
+              avatar_url: null,
+              bio: null
+            };
             
-            // Try fetching again
-            const { data: retryProfileData, error: retryError } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', data.user.id)
-              .single();
-              
-            if (retryError) throw retryError;
+            // Try to create the profile
+            try {
+              const { error: insertError } = await supabase
+                .from('profiles')
+                .insert({
+                  id: defaultProfile.id,
+                  email: defaultProfile.email,
+                  full_name: defaultProfile.full_name,
+                  roles: defaultProfile.roles
+                });
+                
+              if (insertError) {
+                console.warn("Could not create profile:", insertError);
+              }
+            } catch (insertErr) {
+              console.warn("Error creating profile:", insertErr);
+            }
             
             set({ 
               user: data.user, 
-              profile: retryProfileData as Profile,
+              profile: defaultProfile,
               isLoading: false 
             });
             return;
           }
           
-          throw profileError;
+          set({ 
+            user: data.user, 
+            profile: profileData as Profile,
+            isLoading: false 
+          });
+        } catch (profileError) {
+          console.error("Error fetching profile:", profileError);
+          // Create a default profile if we can't fetch one
+          const defaultProfile: Profile = {
+            id: data.user.id,
+            email: data.user.email || '',
+            full_name: data.user.user_metadata.full_name || 'User',
+            roles: ['tourist'],
+            territory_id: null,
+            avatar_url: null,
+            bio: null
+          };
+          
+          set({ 
+            user: data.user, 
+            profile: defaultProfile,
+            isLoading: false 
+          });
         }
-        
-        set({ 
-          user: data.user, 
-          profile: profileData as Profile,
-          isLoading: false 
-        });
       }
     } catch (error) {
       set({ 
@@ -129,22 +166,25 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       if (data.user) {
-        // Wait a moment for the trigger to create the profile
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Fetch the created profile
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', data.user.id)
-          .single();
+        try {
+          // Wait a moment for the trigger to create the profile
+          await new Promise(resolve => setTimeout(resolve, 1000));
           
-        if (profileError) {
-          console.warn('Profile not found immediately after signup, this is expected');
-          // Create a temporary profile object for the UI
-          set({ 
-            user: data.user,
-            profile: {
+          // Fetch the created profile
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', data.user.id)
+            .maybeSingle();
+            
+          if (profileError && profileError.code !== 'PGRST116') {
+            throw profileError;
+          }
+          
+          if (!profileData) {
+            console.warn('Profile not found immediately after signup, creating a temporary one');
+            // Create a temporary profile object for the UI
+            const defaultProfile: Profile = {
               id: data.user.id,
               email,
               full_name: fullName,
@@ -152,13 +192,55 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               territory_id: null,
               avatar_url: null,
               bio: null
-            },
-            isLoading: false 
-          });
-        } else {
+            };
+            
+            // Try to create the profile
+            try {
+              const { error: insertError } = await supabase
+                .from('profiles')
+                .insert({
+                  id: defaultProfile.id,
+                  email: defaultProfile.email,
+                  full_name: defaultProfile.full_name,
+                  roles: defaultProfile.roles
+                });
+                
+              if (insertError) {
+                console.warn("Could not create profile:", insertError);
+              }
+            } catch (insertErr) {
+              console.warn("Error creating profile:", insertErr);
+            }
+            
+            set({ 
+              user: data.user,
+              profile: defaultProfile,
+              isLoading: false 
+            });
+            return;
+          }
+          
           set({ 
             user: data.user,
             profile: profileData as Profile,
+            isLoading: false 
+          });
+        } catch (profileError) {
+          console.error("Error fetching profile after signup:", profileError);
+          // Create a default profile
+          const defaultProfile: Profile = {
+            id: data.user.id,
+            email,
+            full_name: fullName,
+            roles,
+            territory_id: null,
+            avatar_url: null,
+            bio: null
+          };
+          
+          set({ 
+            user: data.user,
+            profile: defaultProfile,
             isLoading: false 
           });
         }
@@ -192,47 +274,85 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session?.user) {
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
+        try {
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .maybeSingle();
 
-        if (profileError) {
-          // If profile doesn't exist yet, create it
-          if (profileError.code === 'PGRST116') {
-            // Wait a moment and try again
-            await new Promise(resolve => setTimeout(resolve, 1000));
+          if (profileError && profileError.code !== 'PGRST116') {
+            throw profileError;
+          }
+          
+          if (!profileData) {
+            console.log("No profile found during loadUser, creating default profile");
+            // Create a default profile
+            const defaultProfile: Profile = {
+              id: session.user.id,
+              email: session.user.email || '',
+              full_name: session.user.user_metadata.full_name || 'User',
+              roles: ['tourist'],
+              territory_id: null,
+              avatar_url: null,
+              bio: null
+            };
             
-            // Try fetching again
-            const { data: retryProfileData, error: retryError } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', session.user.id)
-              .single();
-              
-            if (retryError) throw retryError;
+            // Try to create the profile
+            try {
+              const { error: insertError } = await supabase
+                .from('profiles')
+                .insert({
+                  id: defaultProfile.id,
+                  email: defaultProfile.email,
+                  full_name: defaultProfile.full_name,
+                  roles: defaultProfile.roles
+                });
+                
+              if (insertError) {
+                console.warn("Could not create profile:", insertError);
+              }
+            } catch (insertErr) {
+              console.warn("Error creating profile:", insertErr);
+            }
             
             set({ 
               user: session.user, 
-              profile: retryProfileData as Profile,
+              profile: defaultProfile,
               isLoading: false 
             });
             return;
           }
           
-          throw profileError;
+          set({ 
+            user: session.user, 
+            profile: profileData as Profile,
+            isLoading: false 
+          });
+        } catch (error) {
+          console.error("Error loading profile:", error);
+          // Create a default profile
+          const defaultProfile: Profile = {
+            id: session.user.id,
+            email: session.user.email || '',
+            full_name: session.user.user_metadata.full_name || 'User',
+            roles: ['tourist'],
+            territory_id: null,
+            avatar_url: null,
+            bio: null
+          };
+          
+          set({ 
+            user: session.user, 
+            profile: defaultProfile,
+            isLoading: false 
+          });
         }
-        
-        set({ 
-          user: session.user, 
-          profile: profileData as Profile,
-          isLoading: false 
-        });
       } else {
         set({ user: null, profile: null, isLoading: false });
       }
     } catch (error) {
+      console.error("Error in loadUser:", error);
       set({ 
         user: null,
         profile: null,

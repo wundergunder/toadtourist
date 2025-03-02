@@ -446,7 +446,7 @@ const HotelOperatorDashboard: React.FC = () => {
                               className={link.active ? "text-orange-600 hover:text-orange-700" : "text-green-600 hover:text-green-700"}
                               title={link.active ? "Deactivate link" : "Activate link"}
                             >
-                              {link.active ? <X className="h-5 w-5" /> : <Check className="h-5 w-5" />}
+                              {link.active ? <Check className="h-5 w-5" /> : <Check className="h-5 w-5" />}
                             </button>
                             <button
                               onClick={() => handleDeleteLink(link.id)}

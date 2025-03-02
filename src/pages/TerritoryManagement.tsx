@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Navigate, Link } from 'react-router-dom';
+import { Navigate, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
 import { 
@@ -262,7 +262,7 @@ const TerritoryManagement: React.FC = () => {
         return;
       }
       
-      // Create user in auth with metadata that includes the territory_id
+      // Create user in auth with metadata that includes the territory_id and hotel_name
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -920,240 +920,6 @@ const TerritoryManagement: React.FC = () => {
         </div>
       )}
       
-      {/* Add Experience Modal */}
-      {showAddExperienceForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-bold mb-4">Add New Experience</h2>
-            
-            {formSuccess ? (
-              <div className="bg-green-50 text-green-700 p-4 rounded-lg mb-4 flex items-start">
-                <Check className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />
-                <p>{formSuccess}</p>
-              </div>
-            ) : (
-              <form onSubmit={handleAddExperience}>
-                {formError && (
-                  <div className="bg-red-50 text-red-700 p-3 rounded-lg mb-4 flex items-start">
-                    <AlertCircle className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />
-                    <p>{formError}</p>
-                  </div>
-                )}
-                
-                <div className="mb-4">
-                  <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
-                    Experience Title *
-                  </label>
-                  <input
-                    id="title"
-                    type="text"
-                    value={newExperience.title}
-                    onChange={(e) => setNewExperience({...newExperience, title: e.target.value})}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-                    required
-                  />
-                </div>
-                
-                <div className="mb-4">
-                  <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-                    Description *
-                  </label>
-                  <textarea
-                    id="description"
-                    rows={4}
-                    value={newExperience.description}
-                    onChange={(e) => setNewExperience({...newExperience, description: e.target.value})}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-                    required
-                  />
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                  <div>
-                    <label htmlFor="price" className="block text-sm font-medium text-gray-700 mb-1">
-                      Price (USD) *
-                    </label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <DollarSign className="h-5 w-5 text-gray-400" />
-                      </div>
-                      <input
-                        id="price"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={newExperience.price || 0}
-                        onChange={(e) => setNewExperience({...newExperience, price: parseFloat(e.target.value) || 0})}
-                        className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-                        required
-                      />
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <label htmlFor="duration" className="block text-sm font-medium text-gray-700 mb-1">
-                      Duration (hours) *
-                    </label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <Clock className="h-5 w-5 text-gray-400" />
-                      </div>
-                      <input
-                        id="duration"
-                        type="number"
-                        min="0.5"
-                        step="0.5"
-                        value={newExperience.duration || 1}
-                        onChange={(e) => setNewExperience({...newExperience, duration: parseFloat(e.target.value) || 1})}
-                        className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-                        required
-                      />
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <label htmlFor="maxSpots" className="block text-sm font-medium text-gray-700 mb-1">
-                      Max Spots *
-                    </label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <Users className="h-5 w-5 text-gray-400" />
-                      </div>
-                      <input
-                        id="maxSpots"
-                        type="number"
-                        min="1"
-                        value={newExperience.maxSpots || 10}
-                        onChange={(e) => setNewExperience({...newExperience, maxSpots: parseInt(e.target.value) || 10})}
-                        className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-                        required
-                      />
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="mb-4">
-                  <label htmlFor="guideId" className="block text-sm font-medium text-gray-700 mb-1">
-                    Assign Guide *
-                  </label>
-                  <select
-                    id="guideId"
-                    value={newExperience.guideId}
-                    onChange={(e) => setNewExperience({...newExperience, guideId: e.target.value})}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-                    required
-                  >
-                    <option value="">-- Select Guide --</option>
-                    {displayGuides.map((guide) => (
-                      <option key={guide.id} value={guide.id}>
-                        {guide.full_name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Images *
-                  </label>
-                  {newExperience.imageUrls.map((url, index) => (
-                    <div key={index} className="flex items-center mb-2">
-                      <div className="flex-grow mr-2">
-                        <div className="flex items-center">
-                          <input
-                            type="url"
-                            value={url}
-                            onChange={(e) => handleImageUrlChange(index, e.target.value)}
-                            placeholder="https://example.com/image.jpg"
-                            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-                            required={index === 0}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleUploadImage(index)}
-                            className="ml-2 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-3 rounded-md flex items-center"
-                          >
-                            <Upload className="h-4 w-4" />
-                          </button>
-                        </div>
-                        {url && (
-                          <div className="mt-1 h-16 w-full">
-                            <img 
-                              src={url} 
-                              alt={`Preview ${index + 1}`} 
-                              className="h-full object-cover rounded-md"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).src = 'https://via.placeholder.com/150?text=Invalid+Image+URL';
-                              }}
-                            />
-                          </div>
-                        )}
-                      </div>
-                      {index > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveImageUrl(index)}
-                          className="text-red-600 hover:text-red-900"
-                        >
-                          <X className="h-5 w-5" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={handleAddImageUrl}
-                    className="mt-2 inline-flex items-center text-sm font-medium text-green-600 hover:text-green-700"
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    Add Another Image
-                  </button>
-                </div>
-                
-                <div className="flex justify-end space-x-3">
-                  <button
-                    type="button"
-                    onClick={() => setShowAddExperienceForm(false)}
-                    className="bg-white border border-gray-300 text-gray-700 font-medium py-2 px-4 rounded-md hover:bg-gray-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md"
-                  >
-                    Create Experience
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
-      
-      {/* Image Upload Modal */}
-      {showImageUploader && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-            <h2 className="text-xl font-bold mb-4">Upload Image</h2>
-            
-            <ImageUploader 
-              onImageUploaded={handleImageUploaded}
-              onError={(error) => setFormError(error)}
-            />
-            
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={() => setShowImageUploader(false)}
-                className="bg-white border border-gray-300 text-gray-700 font-medium py-2 px-4 rounded-md hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-            </div>
-          </div> </div>
-      )}
-      
       {/* Add Tour Guide Modal */}
       {showAddGuideForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -1233,6 +999,30 @@ const TerritoryManagement: React.FC = () => {
                 </div>
               </form>
             )}
+          </div>
+        </div>
+      )}
+      
+      {/* Image Upload Modal */}
+      {showImageUploader && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <h2 className="text-xl font-bold mb-4">Upload Image</h2>
+            
+            <ImageUploader 
+              onImageUploaded={handleImageUploaded}
+              onError={(error) => setFormError(error)}
+            />
+            
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowImageUploader(false)}
+                className="bg-white border border-gray-300 text-gray-700 font-medium py-2 px-4 rounded-md hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}
