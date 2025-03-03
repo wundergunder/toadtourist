@@ -3,9 +3,10 @@ import { Navigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
 import { 
-  Users, Map, User, AlertCircle, Check, X, Plus, Trash2, Edit, Save 
+  Users, Map, User, AlertCircle, Check, X, Plus, Trash2, Edit, Save, Upload 
 } from 'lucide-react';
 import { UserRole } from '../types/supabase';
+import TerritoryImageUploader from '../components/TerritoryImageUploader';
 
 interface TerritoryManager {
   id: string;
@@ -15,7 +16,7 @@ interface TerritoryManager {
   roles: UserRole[];
   territories?: {
     name: string;
-  } | null;
+  };
 }
 
 interface Territory {
@@ -121,7 +122,7 @@ const AdminDashboard: React.FC = () => {
     if (user && hasRole('admin')) {
       fetchData();
     }
-  }, [user, profile]);
+  }, [user]);
 
   const handleAddManager = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -256,8 +257,6 @@ const AdminDashboard: React.FC = () => {
       return;
     }
     
-    setError(null);
-    
     try {
       // Remove territory manager role
       await removeRole('territory_manager', managerId);
@@ -297,12 +296,14 @@ const AdminDashboard: React.FC = () => {
     });
   };
 
-  const handleSaveManagerEdit = async (managerId: string) => {
+  const handleSaveManagerEdit = async () => {
+    if (!editingManagerId) return;
+    
     try {
       setError(null);
       
       // Get the original manager data
-      const originalManager = territoryManagers.find(m => m.id === managerId);
+      const originalManager = territoryManagers.find(m => m.id === editingManagerId);
       if (!originalManager) {
         throw new Error('Manager not found');
       }
@@ -314,7 +315,7 @@ const AdminDashboard: React.FC = () => {
           full_name: editManager.full_name,
           territory_id: editManager.territory_id
         })
-        .eq('id', managerId);
+        .eq('id', editingManagerId);
       
       if (error) throw error;
       
@@ -325,20 +326,20 @@ const AdminDashboard: React.FC = () => {
       // Add new roles
       for (const role of newRoles) {
         if (!originalRoles.has(role)) {
-          await addRole(role, managerId);
+          await addRole(role, editingManagerId);
         }
       }
       
       // Remove roles that were removed
       for (const role of originalRoles) {
         if (!newRoles.has(role) && role !== 'tourist') {
-          await removeRole(role, managerId);
+          await removeRole(role, editingManagerId);
         }
       }
       
       // Update local state
       setTerritoryManagers(territoryManagers.map(manager => 
-        manager.id === managerId 
+        manager.id === editingManagerId 
           ? {
               ...manager,
               full_name: editManager.full_name,
@@ -393,7 +394,9 @@ const AdminDashboard: React.FC = () => {
     });
   };
 
-  const handleSaveTerritoryEdit = async (territoryId: string) => {
+  const handleSaveTerritoryEdit = async () => {
+    if (!editingTerritoryId) return;
+    
     try {
       setError(null);
       
@@ -404,13 +407,13 @@ const AdminDashboard: React.FC = () => {
           description: editTerritory.description,
           image_url: editTerritory.image_url
         })
-        .eq('id', territoryId);
+        .eq('id', editingTerritoryId);
       
       if (error) throw error;
       
       // Update local state
       setTerritories(territories.map(territory => 
-        territory.id === territoryId 
+        territory.id === editingTerritoryId 
           ? {
               ...territory,
               name: editTerritory.name,
@@ -422,7 +425,7 @@ const AdminDashboard: React.FC = () => {
       
       // Also update any territory managers that reference this territory
       setTerritoryManagers(territoryManagers.map(manager => 
-        manager.territory_id === territoryId 
+        manager.territory_id === editingTerritoryId 
           ? {
               ...manager,
               territories: { name: editTerritory.name }
@@ -438,6 +441,20 @@ const AdminDashboard: React.FC = () => {
     } catch (error) {
       console.error('Error updating region:', error);
       setError('Failed to update region. Please try again.');
+    }
+  };
+
+  const handleImageUploaded = (url: string) => {
+    if (editingTerritoryId) {
+      setEditTerritory({
+        ...editTerritory,
+        image_url: url
+      });
+    } else {
+      setNewTerritory({
+        ...newTerritory,
+        imageUrl: url
+      });
     }
   };
 
@@ -661,7 +678,7 @@ const AdminDashboard: React.FC = () => {
                         <div className="flex justify-end space-x-2">
                           {editingManagerId === manager.id ? (
                             <button
-                              onClick={() => handleSaveManagerEdit(manager.id)}
+                              onClick={handleSaveManagerEdit}
                               className="text-green-600 hover:text-green-900"
                             >
                               <Save className="h-5 w-5" />
@@ -738,18 +755,28 @@ const AdminDashboard: React.FC = () => {
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Image URL
+                          Image
                         </label>
-                        <input
-                          type="url"
-                          value={editTerritory.image_url}
-                          onChange={(e) => setEditTerritory({...editTerritory, image_url: e.target.value})}
-                          className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                        <TerritoryImageUploader
+                          currentImageUrl={editTerritory.image_url}
+                          onImageUploaded={handleImageUploaded}
+                          onError={setError}
                         />
+                        <div className="mt-2">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Or enter image URL manually:
+                          </label>
+                          <input
+                            type="url"
+                            value={editTerritory.image_url}
+                            onChange={(e) => setEditTerritory({...editTerritory, image_url: e.target.value})}
+                            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                          />
+                        </div>
                       </div>
                       <div className="flex justify-end">
                         <button
-                          onClick={() => handleSaveTerritoryEdit(territory.id)}
+                          onClick={handleSaveTerritoryEdit}
                           className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md flex items-center"
                         >
                           <Save className="h-4 w-4 mr-1" />
@@ -809,7 +836,7 @@ const AdminDashboard: React.FC = () => {
                   </label>
                   <input
                     id="fullName"
-                    type=" text"
+                    type="text"
                     value={newManager.fullName}
                     onChange={(e) => setNewManager({...newManager, fullName: e.target.value})}
                     className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
@@ -934,18 +961,28 @@ const AdminDashboard: React.FC = () => {
                 </div>
                 
                 <div className="mb-6">
-                  <label htmlFor="imageUrl" className="block text-sm font-medium text-gray-700 mb-1">
-                    Image URL *
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Image *
                   </label>
-                  <input
-                    id="imageUrl"
-                    type="url"
-                    value={newTerritory.imageUrl}
-                    onChange={(e) => setNewTerritory({...newTerritory, imageUrl: e.target.value})}
-                    placeholder="https://example.com/image.jpg"
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-                    required
+                  <TerritoryImageUploader
+                    currentImageUrl={newTerritory.imageUrl}
+                    onImageUploaded={handleImageUploaded}
+                    onError={setFormError}
                   />
+                  <div className="mt-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Or enter image URL manually:
+                    </label>
+                    <input
+                      id="imageUrl"
+                      type="url"
+                      value={newTerritory.imageUrl}
+                      onChange={(e) => setNewTerritory({...newTerritory, imageUrl: e.target.value})}
+                      placeholder="https://example.com/image.jpg"
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                      required
+                    />
+                  </div>
                 </div>
                 
                 <div className="flex justify-end space-x-3">

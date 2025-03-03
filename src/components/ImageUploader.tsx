@@ -6,9 +6,16 @@ import { Upload, X, Check, AlertCircle, Image as ImageIcon } from 'lucide-react'
 interface ImageUploaderProps {
   onImageUploaded: (url: string) => void;
   onError?: (error: string) => void;
+  folderName?: string;
+  maxSizeMB?: number;
 }
 
-const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUploaded, onError }) => {
+const ImageUploader: React.FC<ImageUploaderProps> = ({ 
+  onImageUploaded, 
+  onError,
+  folderName = 'experience-images',
+  maxSizeMB = 5
+}) => {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -23,13 +30,18 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUploaded, onError 
     
     // Validate file type
     if (!file.type.startsWith('image/')) {
-      setUploadError('Please select an image file (JPEG, PNG, etc.)');
+      const errorMsg = 'Please select an image file (JPEG, PNG, etc.)';
+      setUploadError(errorMsg);
+      if (onError) onError(errorMsg);
       return;
     }
     
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      setUploadError('Image size must be less than 5MB');
+    // Validate file size (max 5MB by default)
+    const maxSize = maxSizeMB * 1024 * 1024;
+    if (file.size > maxSize) {
+      const errorMsg = `Image size must be less than ${maxSizeMB}MB`;
+      setUploadError(errorMsg);
+      if (onError) onError(errorMsg);
       return;
     }
 
@@ -42,7 +54,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUploaded, onError 
       // Generate a unique file name
       const fileExt = file.name.split('.').pop();
       const fileName = `${uuidv4()}.${fileExt}`;
-      const filePath = `experience-images/${fileName}`;
+      const filePath = `${folderName}/${fileName}`;
 
       // Upload to Supabase Storage
       const { error: uploadError, data } = await supabase.storage
@@ -123,7 +135,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUploaded, onError 
             <>
               <Upload className="h-10 w-10 text-gray-400 mb-2" />
               <span className="text-sm text-gray-500">Click to upload an image</span>
-              <span className="text-xs text-gray-400 mt-1">PNG, JPG, GIF up to 5MB</span>
+              <span className="text-xs text-gray-400 mt-1">PNG, JPG, GIF up to {maxSizeMB}MB</span>
             </>
           )}
         </div>

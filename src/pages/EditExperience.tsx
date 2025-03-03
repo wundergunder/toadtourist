@@ -5,7 +5,7 @@ import { useAuthStore } from '../store/authStore';
 import { 
   MapPin, DollarSign, Clock, Users, AlertCircle, Check, X, Plus, Save, Image, Upload 
 } from 'lucide-react';
-import ImageUploader from '../components/ImageUploader';
+import MultiImageUploader from '../components/MultiImageUploader';
 
 interface Experience {
   id: string;
@@ -48,10 +48,6 @@ const EditExperience: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-
-  // Image upload state
-  const [showImageUploader, setShowImageUploader] = useState(false);
-  const [currentImageIndex, setCurrentImageIndex] = useState<number | null>(null);
 
   useEffect(() => {
     const fetchExperienceAndGuides = async () => {
@@ -145,47 +141,11 @@ const EditExperience: React.FC = () => {
     }
   };
 
-  const handleAddImageUrl = () => {
+  const handleImageUrlsChange = (urls: string[]) => {
     setExperience({
       ...experience,
-      image_urls: [...experience.image_urls, '']
+      image_urls: urls
     });
-  };
-
-  const handleRemoveImageUrl = (index: number) => {
-    const updatedUrls = [...experience.image_urls];
-    updatedUrls.splice(index, 1);
-    setExperience({
-      ...experience,
-      image_urls: updatedUrls
-    });
-  };
-
-  const handleImageUrlChange = (index: number, value: string) => {
-    const updatedUrls = [...experience.image_urls];
-    updatedUrls[index] = value;
-    setExperience({
-      ...experience,
-      image_urls: updatedUrls
-    });
-  };
-
-  const handleUploadImage = (index: number) => {
-    setCurrentImageIndex(index);
-    setShowImageUploader(true);
-  };
-
-  const handleImageUploaded = (url: string) => {
-    if (currentImageIndex !== null) {
-      const updatedUrls = [...experience.image_urls];
-      updatedUrls[currentImageIndex] = url;
-      setExperience({
-        ...experience,
-        image_urls: updatedUrls
-      });
-      setShowImageUploader(false);
-      setCurrentImageIndex(null);
-    }
   };
 
   return (
@@ -351,61 +311,13 @@ const EditExperience: React.FC = () => {
           </div>
           
           <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Images *
-            </label>
-            {experience.image_urls.map((url, index) => (
-              <div key={index} className="flex items-center mb-2">
-                <div className="flex-grow mr-2">
-                  <div className="flex items-center">
-                    <input
-                      type="url"
-                      value={url}
-                      onChange={(e) => handleImageUrlChange(index, e.target.value)}
-                      placeholder="https://example.com/image.jpg"
-                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-                      required={index === 0}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleUploadImage(index)}
-                      className="ml-2 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-3 rounded-md flex items-center"
-                    >
-                      <Upload className="h-4 w-4" />
-                    </button>
-                  </div>
-                  {url && (
-                    <div className="mt-1 h-16 w-full">
-                      <img 
-                        src={url} 
-                        alt={`Preview ${index + 1}`} 
-                        className="h-full object-cover rounded-md"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = 'https://via.placeholder.com/150?text=Invalid+Image+URL';
-                        }}
-                      />
-                    </div>
-                  )}
-                </div>
-                {index > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveImageUrl(index)}
-                    className="text-red-600 hover:text-red-900"
-                  >
-                    <X className="h-5 w-5" />
-                  </button>
-                )}
-              </div>
-            ))}
-            <button
-              type="button"
-              onClick={handleAddImageUrl}
-              className="mt-2 inline-flex items-center text-sm font-medium text-green-600 hover:text-green-700"
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              Add Another Image
-            </button>
+            <MultiImageUploader 
+              imageUrls={experience.image_urls}
+              onImageUrlsChange={handleImageUrlsChange}
+              onError={setError}
+              folderName="experience-images"
+              maxSizeMB={5}
+            />
           </div>
           
           <div className="flex justify-end space-x-3">
@@ -424,30 +336,6 @@ const EditExperience: React.FC = () => {
             </button>
           </div>
         </form>
-      )}
-      
-      {/* Image Upload Modal */}
-      {showImageUploader && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-            <h2 className="text-xl font-bold mb-4">Upload Image</h2>
-            
-            <ImageUploader 
-              onImageUploaded={handleImageUploaded}
-              onError={(error) => setError(error)}
-            />
-            
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={() => setShowImageUploader(false)}
-                className="bg-white border border-gray-300 text-gray-700 font-medium py-2 px-4 rounded-md hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
       )}
     </div>
   );
