@@ -3,17 +3,14 @@ import { Navigate, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
 import { 
-  Users, Map, User, AlertCircle, Check, X, Plus, Trash2, Edit, Save, Image, Upload, Shield 
+  Users, Map, User, AlertCircle, Check, X, Plus, Trash2, Edit, Save, DollarSign
 } from 'lucide-react';
-import ImageUploader from '../components/ImageUploader';
-import MultiMediaUploader from '../components/MultiMediaUploader';
-import { UserRole } from '../types/supabase';
 
 interface TourGuide {
   id: string;
   email: string;
   full_name: string;
-  roles: UserRole[];
+  roles: string[];
 }
 
 interface Experience {
@@ -36,67 +33,51 @@ interface Territory {
   image_url: string;
 }
 
-interface Media {
-  url: string;
-  type: 'image' | 'video';
+interface CommissionEarning {
+  id: string;
+  amount: number;
+  status: 'pending' | 'paid';
+  created_at: string;
+  bookings: {
+    experiences: {
+      title: string;
+    };
+    profiles: {
+      full_name: string;
+    };
+  };
+}
+
+interface CommissionPayment {
+  id: string;
+  amount: number;
+  payment_method: string;
+  payment_reference: string;
+  payment_date: string;
 }
 
 const TerritoryManagement: React.FC = () => {
   const navigate = useNavigate();
-  const { user, profile, hasRole, addRole, removeRole } = useAuthStore();
+  const { user, profile } = useAuthStore();
   
+  const [currentTab, setCurrentTab] = useState<'experiences' | 'guides' | 'finances'>('experiences');
   const [tourGuides, setTourGuides] = useState<TourGuide[]>([]);
   const [experiences, setExperiences] = useState<Experience[]>([]);
   const [territory, setTerritory] = useState<Territory | null>(null);
+  const [earnings, setEarnings] = useState<CommissionEarning[]>([]);
+  const [payments, setPayments] = useState<CommissionPayment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  
-  const [showAddGuideForm, setShowAddGuideForm] = useState(false);
-  const [showAddExperienceForm, setShowAddExperienceForm] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
-  const [formSuccess, setFormSuccess] = useState<string | null>(null);
-  
-  const [newGuide, setNewGuide] = useState({
-    email: '',
-    fullName: '',
-    password: ''
-  });
-
-  const [newExperience, setNewExperience] = useState({
-    title: '',
-    description: '',
-    price: 0,
-    duration: 1,
-    maxSpots: 10,
-    guideId: '',
-    imageUrls: ['']
-  });
-
-  // Media state for new experience
-  const [media, setMedia] = useState<Media[]>([{ url: '', type: 'image' }]);
-
-  // Image upload state
-  const [showImageUploader, setShowImageUploader] = useState(false);
-  const [currentImageIndex, setCurrentImageIndex] = useState<number | null>(null);
-
-  // User management
-  const [editingGuideId, setEditingGuideId] = useState<string | null>(null);
-  const [editGuide, setEditGuide] = useState<{
-    full_name: string;
-    roles: UserRole[];
-  }>({
-    full_name: '',
-    roles: ['tourist']
-  });
 
   const fetchData = async () => {
     if (!profile?.territory_id) return;
 
     try {
       setIsLoading(true);
+      setError(null);
       
-      // Fetch territory
+      // Fetch territory details
       const { data: territoryData, error: territoryError } = await supabase
         .from('territories')
         .select('*')
@@ -106,17 +87,17 @@ const TerritoryManagement: React.FC = () => {
       if (territoryError) throw territoryError;
       setTerritory(territoryData);
       
-      // Fetch tour guides
+      // Fetch tour guides for this territory
       const { data: guidesData, error: guidesError } = await supabase
         .from('profiles')
         .select('id, email, full_name, roles')
-        .contains('roles', ['tour_guide'])
-        .eq('territory_id', profile.territory_id);
+        .eq('territory_id', profile.territory_id)
+        .contains('roles', ['tour_guide']);
       
       if (guidesError) throw guidesError;
       setTourGuides(guidesData || []);
       
-      // Fetch experiences
+      // Fetch experiences for this territory
       const { data: experiencesData, error: experiencesError } = await supabase
         .from('experiences')
         .select(`
@@ -135,8 +116,44 @@ const TerritoryManagement: React.FC = () => {
       
       if (experiencesError) throw experiencesError;
       setExperiences(experiencesData || []);
+
+      // Fetch commission earnings
+      const { data: earningsData, error: earningsError } = await supabase
+        .from('commission_earnings')
+        .select(`
+          id,
+          amount,
+          status,
+          created_at,
+          bookings (
+            experiences (
+              title
+            ),
+            profiles (
+              full_name
+            )
+          )
+        `)
+        .eq('role', 'territory_manager')
+        .eq('user_id', user?.id)
+        .order('created_at', { ascending: false });
+      
+      if (earningsError) throw earningsError;
+      setEarnings(earningsData || []);
+
+      // Fetch commission payments
+      const { data: paymentsData, error: paymentsError } = await supabase
+        .from('commission_payments')
+        .select('*')
+        .eq('role', 'territory_manager')
+        .eq('user_id', user?.id)
+        .order('payment_date', { ascending: false });
+      
+      if (paymentsError) throw paymentsError;
+      setPayments(paymentsData || []);
+
     } catch (error) {
-      console.error('Error fetching region management data:', error);
+      console.error('Error fetching data:', error);
       setError('Failed to load data. Please try again later.');
     } finally {
       setIsLoading(false);
@@ -144,315 +161,34 @@ const TerritoryManagement: React.FC = () => {
   };
 
   useEffect(() => {
-    if (user && hasRole('territory_manager')) {
+    if (user && profile?.territory_id) {
       fetchData();
     }
-  }, [user]);
+  }, [user, profile]);
 
-  const handleAddGuide = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setFormError(null);
-    setFormSuccess(null);
-    
-    if (!profile?.territory_id) {
-      setFormError('You are not assigned to a region');
-      return;
-    }
-    
-    const { email, fullName, password } = newGuide;
-    
-    if (!email || !fullName || !password) {
-      setFormError('Please fill in all required fields');
-      return;
-    }
-    
-    try {
-      // First check if the email already exists
-      const { data: existingUser, error: checkError } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('email', email)
-        .maybeSingle();
-      
-      if (checkError) throw checkError;
-      
-      if (existingUser) {
-        setFormError('A user with this email already exists. Please use a different email address.');
-        return;
-      }
-      
-      // Create user in auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: fullName,
-            roles: ['tourist', 'tour_guide'],
-            territory_id: profile.territory_id
-          }
-        }
-      });
-      
-      if (authError) throw authError;
-      
-      if (authData.user) {
-        // Wait for the trigger to create the profile
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Refresh the guide list
-        fetchData();
-        
-        setFormSuccess('Tour guide added successfully');
-        setNewGuide({
-          email: '',
-          fullName: '',
-          password: ''
-        });
-        setTimeout(() => {
-          setShowAddGuideForm(false);
-          setFormSuccess(null);
-        }, 2000);
-      }
-    } catch (error) {
-      console.error('Error adding tour guide:', error);
-      setFormError('Failed to add tour guide. Please try again.');
-    }
+  // Calculate earnings totals
+  const totalEarnings = earnings.reduce((sum, earning) => sum + earning.amount, 0);
+  const pendingEarnings = earnings
+    .filter(earning => earning.status === 'pending')
+    .reduce((sum, earning) => sum + earning.amount, 0);
+  const paidEarnings = earnings
+    .filter(earning => earning.status === 'paid')
+    .reduce((sum, earning) => sum + earning.amount, 0);
+
+  const formatCurrency = (amount: number) => {
+    return `$${amount.toFixed(2)}`;
   };
 
-  const handleRemoveGuide = async (guideId: string) => {
-    if (!confirm('Are you sure you want to remove this tour guide?')) {
-      return;
-    }
-    
-    try {
-      // Remove tour_guide role
-      await removeRole('tour_guide', guideId);
-      
-      // Update territory_id to null
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ territory_id: null })
-        .eq('id', guideId);
-      
-      if (updateError) throw updateError;
-      
-      // Update local state
-      setTourGuides(tourGuides.filter(guide => guide.id !== guideId));
-      
-      setSuccessMessage('Tour guide removed successfully');
-      setTimeout(() => {
-        setSuccessMessage(null);
-      }, 3000);
-    } catch (error) {
-      console.error('Error removing tour guide:', error);
-      setError('Failed to remove tour guide. Please try again.');
-    }
-  };
-
-  const handleEditGuide = (guide: TourGuide) => {
-    setEditingGuideId(guide.id);
-    setEditGuide({
-      full_name: guide.full_name,
-      roles: [...guide.roles]
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
     });
   };
 
-  const handleSaveGuideEdit = async () => {
-    if (!editingGuideId) return;
-    
-    try {
-      // Get the original guide data
-      const originalGuide = tourGuides.find(g => g.id === editingGuideId);
-      if (!originalGuide) {
-        throw new Error('Guide not found');
-      }
-      
-      // Update profile info
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          full_name: editGuide.full_name
-        })
-        .eq('id', editingGuideId);
-      
-      if (error) throw error;
-      
-      // Handle role changes
-      const originalRoles = new Set(originalGuide.roles);
-      const newRoles = new Set(editGuide.roles);
-      
-      // Add new roles
-      for (const role of newRoles) {
-        if (!originalRoles.has(role)) {
-          await addRole(role, editingGuideId);
-        }
-      }
-      
-      // Remove roles that were removed
-      for (const role of originalRoles) {
-        if (!newRoles.has(role) && role !== 'tourist') {
-          await removeRole(role, editingGuideId);
-        }
-      }
-      
-      // Update local state
-      setTourGuides(tourGuides.map(guide => 
-        guide.id === editingGuideId 
-          ? {
-              ...guide,
-              full_name: editGuide.full_name,
-              roles: editGuide.roles
-            }
-          : guide
-      ));
-      
-      setEditingGuideId(null);
-      setSuccessMessage('Guide updated successfully');
-      
-      setTimeout(() => {
-        setSuccessMessage(null);
-      }, 3000);
-    } catch (error) {
-      console.error('Error updating guide:', error);
-      setError('Failed to update guide. Please try again.');
-    }
-  };
-
-  const handleToggleRole = (role: UserRole) => {
-    if (role === 'tourist') return; // Can't remove tourist role
-    
-    const hasRole = editGuide.roles.includes(role);
-    
-    if (hasRole) {
-      // Remove role
-      setEditGuide({
-        ...editGuide,
-        roles: editGuide.roles.filter(r => r !== role)
-      });
-    } else {
-      // Add role
-      setEditGuide({
-        ...editGuide,
-        roles: [...editGuide.roles, role]
-      });
-    }
-  };
-
-  const handleAddExperience = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setFormError(null);
-    setFormSuccess(null);
-    
-    if (!profile?.territory_id) {
-      setFormError('You are not assigned to a region');
-      return;
-    }
-    
-    const { title, description, price, duration, maxSpots, guideId } = newExperience;
-    
-    // Validate that we have at least one image
-    const imageUrls = media.filter(item => item.type === 'image' && item.url.trim() !== '').map(item => item.url);
-    const videoUrls = media.filter(item => item.type === 'video' && item.url.trim() !== '').map(item => item.url);
-    
-    if (!title || !description || price <= 0 || duration <= 0 || maxSpots <= 0 || !guideId || imageUrls.length === 0) {
-      setFormError('Please fill in all required fields with valid values. At least one image is required.');
-      return;
-    }
-    
-    try {
-      // Generate ID from title
-      const id = title.toLowerCase().replace(/\s+/g, '-');
-      
-      // Create experience
-      const { data, error } = await supabase
-        .from('experiences')
-        .insert({
-          id,
-          title,
-          description,
-          price,
-          duration,
-          max_spots: maxSpots,
-          available_spots: maxSpots,
-          image_urls: imageUrls,
-          video_urls: videoUrls,
-          territory_id: profile.territory_id,
-          guide_id: guideId
-        })
-        .select(`
-          id,
-          title,
-          price,
-          duration,
-          max_spots,
-          available_spots,
-          guide_id,
-          profiles:guide_id (
-            full_name
-          )
-        `)
-        .single();
-      
-      if (error) throw error;
-      
-      // Add to local state
-      if (data) {
-        setExperiences([...experiences, data]);
-      }
-      
-      setFormSuccess('Experience added successfully');
-      setNewExperience({
-        title: '',
-        description: '',
-        price: 0,
-        duration: 1,
-        maxSpots: 10,
-        guideId: '',
-        imageUrls: ['']
-      });
-      setMedia([{ url: '', type: 'image' }]);
-      setTimeout(() => {
-        setShowAddExperienceForm(false);
-        setFormSuccess(null);
-      }, 2000);
-    } catch (error) {
-      console.error('Error adding experience:', error);
-      setFormError('Failed to add experience. Please try again.');
-    }
-  };
-
-  const handleDeleteExperience = async (experienceId: string) => {
-    if (!confirm('Are you sure you want to delete this experience? This action cannot be undone.')) {
-      return;
-    }
-    
-    try {
-      const { error } = await supabase
-        .from('experiences')
-        .delete()
-        .eq('id', experienceId);
-      
-      if (error) throw error;
-      
-      // Update local state
-      setExperiences(experiences.filter(exp => exp.id !== experienceId));
-      setSuccessMessage('Experience deleted successfully');
-      setTimeout(() => {
-        setSuccessMessage(null);
-      }, 3000);
-    } catch (error) {
-      console.error('Error deleting experience:', error);
-      setError('Failed to delete experience. Please try again.');
-    }
-  };
-
-  const handleMediaChange = (updatedMedia: Media[]) => {
-    setMedia(updatedMedia);
-  };
-
   // If not territory manager, redirect to home
-  if (user && profile && !hasRole('territory_manager')) {
+  if (user && profile && !profile.roles.includes('territory_manager')) {
     return <Navigate to="/" />;
   }
 
@@ -461,74 +197,15 @@ const TerritoryManagement: React.FC = () => {
     return <Navigate to="/login" />;
   }
 
-  // Placeholder data if none in database
-  const placeholderTerritories = [
-    {
-      id: 'rio-dulce',
-      name: 'Rio Dulce',
-      description: 'A lush river valley in eastern Guatemala, known for its stunning natural beauty, wildlife, and the blend of Mayan and Caribbean cultures.',
-      image_url: 'https://images.unsplash.com/photo-1591604129939-f1efa4d9f7fa?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80'
-    }
-  ];
-
-  const placeholderGuides = [
-    {
-      id: 'guide-1',
-      email: 'carlos@example.com',
-      full_name: 'Carlos Mendez',
-      roles: ['tourist', 'tour_guide']
-    },
-    {
-      id: 'guide-2',
-      email: 'elena@example.com',
-      full_name: 'Elena Fuentes',
-      roles: ['tourist', 'tour_guide']
-    }
-  ];
-
-  const placeholderExperiences = [
-    {
-      id: 'jungle-kayaking',
-      title: 'Jungle Kayaking Adventure',
-      description: 'Paddle through the lush mangroves and spot wildlife on this guided kayaking tour.',
-      price: 45,
-      duration: 3,
-      max_spots: 12,
-      available_spots: 8,
-      territory_id: 'rio-dulce',
-      guide_id: 'guide-1',
-      profiles: {
-        full_name: 'Carlos Mendez'
-      }
-    },
-    {
-      id: 'mayan-cooking',
-      title: 'Mayan Cooking Class',
-      description: 'Learn to prepare traditional Mayan dishes with local ingredients and ancient techniques.',
-      price: 35,
-      duration: 4,
-      max_spots: 8,
-      available_spots: 4,
-      territory_id: 'rio-dulce',
-      guide_id: 'guide-2',
-      profiles: {
-        full_name: 'Elena Fuentes'
-      }
-    }
-  ];
-
-  const displayTerritory = territory || placeholderTerritories[0];
-  const displayGuides = tourGuides.length > 0 ? tourGuides : placeholderGuides;
-  const displayExperiences = experiences.length > 0 ? experiences : placeholderExperiences;
-
   return (
     <div>
       <h1 className="text-3xl font-bold mb-2">Region Management</h1>
-      <h2 className="text-xl text-gray-600 mb-6">{displayTerritory.name}</h2>
+      <h2 className="text-xl text-gray-600 mb-6">{territory?.name}</h2>
       
       {error && (
-        <div className="bg-red-50 text-red-700 p-4 rounded-lg mb-6">
-          {error}
+        <div className="bg-red-50 text-red-700 p-4 rounded-lg mb-6 flex items-start">
+          <AlertCircle className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />
+          <p>{error}</p>
         </div>
       )}
       
@@ -538,504 +215,342 @@ const TerritoryManagement: React.FC = () => {
           <p>{successMessage}</p>
         </div>
       )}
-      
+
+      {/* Tabs */}
+      <div className="border-b border-gray-200 mb-6">
+        <nav className="-mb-px flex space-x-8">
+          <button
+            onClick={() => setCurrentTab('experiences')}
+            className={`
+              py-4 px-1 border-b-2 font-medium text-sm
+              ${currentTab === 'experiences'
+                ? 'border-green-500 text-green-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
+            `}
+          >
+            <Map className="h-5 w-5 inline-block mr-2" />
+            Experiences
+          </button>
+          <button
+            onClick={() => setCurrentTab('guides')}
+            className={`
+              py-4 px-1 border-b-2 font-medium text-sm
+              ${currentTab === 'guides'
+                ? 'border-green-500 text-green-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
+            `}
+          >
+            <Users className="h-5 w-5 inline-block mr-2" />
+            Tour Guides
+          </button>
+          <button
+            onClick={() => setCurrentTab('finances')}
+            className={`
+              py-4 px-1 border-b-2 font-medium text-sm
+              ${currentTab === 'finances'
+                ? 'border-green-500 text-green-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
+            `}
+          >
+            <DollarSign className="h-5 w-5 inline-block mr-2" />
+            Finances
+          </button>
+        </nav>
+      </div>
+
       {isLoading ? (
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500"></div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Tour Guides Section */}
-          <div className="bg-white rounded-xl shadow-md overflow-hidden">
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex justify-between items-center">
-                <div className="flex items-center">
-                  <Users className="h-6 w-6 text-green-600 mr-2" />
-                  <h2 className="text-xl font-bold">Tour Guides</h2>
+        <>
+          {/* Experiences Tab */}
+          {currentTab === 'experiences' && (
+            <div className="bg-white rounded-xl shadow-md overflow-hidden">
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center">
+                    <Map className="h-6 w-6 text-green-600 mr-2" />
+                    <h2 className="text-xl font-bold">Experiences</h2>
+                  </div>
+                  <Link
+                    to="/territory-management/edit-experience/new"
+                    className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md flex items-center"
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Experience
+                  </Link>
                 </div>
-                <button
-                  onClick={() => setShowAddGuideForm(true)}
-                  className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md flex items-center"
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add Guide
-                </button>
               </div>
-            </div>
-            
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Name
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Email
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Roles
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {displayGuides.map((guide) => (
-                    <tr key={guide.id}>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {editingGuideId === guide.id ? (
-                          <input
-                            type="text"
-                            value={editGuide.full_name}
-                            onChange={(e) => setEditGuide({...editGuide, full_name: e.target.value})}
-                            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-                          />
-                        ) : (
-                          <div className="font-medium text-gray-900">{guide.full_name}</div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-gray-500">{guide.email}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {editingGuideId === guide.id ? (
-                          <div className="space-y-1">
-                            <div className="flex items-center">
-                              <input
-                                id={"role-tourist-" + guide.id}
-                                type="checkbox"
-                                checked={true}
-                                disabled={true}
-                                className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
-                              />
-                              <label htmlFor={"role-tourist-" + guide.id} className="ml-2 block text-sm text-gray-700">
-                                Tourist
-                              </label>
-                            </div>
-                            <div className="flex items-center">
-                              <input
-                                id={"role-guide-" + guide.id}
-                                type="checkbox"
-                                checked={editGuide.roles.includes('tour_guide')}
-                                onChange={() => handleToggleRole('tour_guide')}
-                                className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
-                              />
-                              <label htmlFor={"role-guide-" + guide.id} className="ml-2 block text-sm text-gray-700">
-                                Tour Guide
-                              </label>
-                            </div>
-                            <div className="flex items-center">
-                              <input
-                                id={"role-hotel-" + guide.id}
-                                type="checkbox"
-                                checked={editGuide.roles.includes('hotel_operator')}
-                                onChange={() => handleToggleRole('hotel_operator')}
-                                className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
-                              />
-                              <label htmlFor={"role-hotel-" + guide.id} className="ml-2 block text-sm text-gray-700">
-                                Hotel Operator
-                              </label>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="flex flex-wrap gap-1">
-                            {guide.roles.map(role => (
-                              <span key={role} className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">
-                                {role.replace('_', ' ')}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex justify-end space-x-2">
-                          {editingGuideId === guide.id ? (
-                            <button
-                              onClick={handleSaveGuideEdit}
-                              className="text-green-600 hover:text-green-900"
-                            >
-                              <Save className="h-5 w-5" />
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => handleEditGuide(guide)}
-                              className="text-blue-600 hover:text-blue-900"
-                            >
-                              <Edit className="h-5 w-5" />
-                            </button>
-                          )}
-                          <button
-                            onClick={() => handleRemoveGuide(guide.id)}
-                            className="text-red-600 hover:text-red-700"
-                          >
-                            <Trash2 className="h-5 w-5" />
-                          </button>
-                        </div>
-                      </td>
+              
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Experience
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Guide
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Price
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Duration
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Availability
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-          
-          {/* Experiences Section */}
-          <div className="bg-white rounded-xl shadow-md overflow-hidden">
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex justify-between items-center">
-                <div className="flex items-center">
-                  <Map className="h-6 w-6 text-green-600 mr-2" />
-                  <h2 className="text-xl font-bold">Experiences</h2>
-                </div>
-                <button
-                  onClick={() => setShowAddExperienceForm(true)}
-                  className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md flex items-center"
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add Experience
-                </button>
-              </div>
-            </div>
-            
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Experience
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Guide
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Price
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Availability
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {displayExperiences.map((experience) => (
-                    <tr key={experience.id}>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="font-medium text-gray-900">{experience.title}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-gray-500">{experience.profiles.full_name}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-gray-500">${experience.price}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-gray-500">
-                          {experience.available_spots} / {experience.max_spots} spots
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex justify-end space-x-2">
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {experiences.map((experience) => (
+                      <tr key={experience.id}>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="font-medium text-gray-900">{experience.title}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-gray-500">{experience.profiles.full_name}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-gray-900">${experience.price}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-gray-500">{experience.duration} hours</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-gray-500">
+                            {experience.available_spots} / {experience.max_spots} spots
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <Link
                             to={`/territory-management/edit-experience/${experience.id}`}
                             className="text-blue-600 hover:text-blue-900"
                           >
                             <Edit className="h-5 w-5" />
                           </Link>
-                          <button
-                            onClick={() => handleDeleteExperience(experience.id)}
-                            className="text-red-600 hover:text-red-900"
-                          >
-                            <Trash2 className="h-5 w-5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {/* Add Tour Guide Modal */}
-      {showAddGuideForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-            <h2 className="text-xl font-bold mb-4">Add Tour Guide</h2>
-            
-            {formSuccess ? (
-              <div className="bg-green-50 text-green-700 p-4 rounded-lg mb-4 flex items-start">
-                <Check className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />
-                <p>{formSuccess}</p>
-              </div>
-            ) : (
-              <form onSubmit={handleAddGuide}>
-                {formError && (
-                  <div className="bg-red-50 text-red-700 p-3 rounded-lg mb-4 flex items-start">
-                    <AlertCircle className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />
-                    <p>{formError}</p>
-                  </div>
-                )}
-                
-                <div className="mb-4">
-                  <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-1">
-                    Full Name *
-                  </label>
-                  <input
-                    id="fullName"
-                    type="text"
-                    value={newGuide.fullName}
-                    onChange={(e) => setNewGuide({...newGuide, fullName: e.target.value})}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-                    required
-                  />
-                </div>
-                
-                <div className="mb-4">
-                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                    Email *
-                  </label>
-                  <input
-                    id="email"
-                    type="email"
-                    value={newGuide.email}
-                    onChange={(e) => setNewGuide({...newGuide, email: e.target.value})}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-                    required
-                  />
-                </div>
-                
-                <div className="mb-6">
-                  <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                    Password *
-                  </label>
-                  <input
-                    id="password"
-                    type="password"
-                    value={newGuide.password}
-                    onChange={(e) => setNewGuide({...newGuide, password: e.target.value})}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-                    required
-                  />
-                </div>
-                
-                <div className="flex justify-end space-x-3">
-                  <button
-                    type="button"
-                    onClick={() => setShowAddGuideForm(false)}
-                    className="bg-white border border-gray-300 text-gray-700 font-medium py-2 px-4 rounded-md hover:bg-gray-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md"
-                  >
-                    Add Guide
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
-      
-      {/* Add Experience Modal */}
-      {showAddExperienceForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-bold mb-4">Add New Experience</h2>
-            
-            {formSuccess ? (
-              <div className="bg-green-50 text-green-700 p-4 rounded-lg mb-4 flex items-start">
-                <Check className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />
-                <p>{formSuccess}</p>
-              </div>
-            ) : (
-              <form onSubmit={handleAddExperience}>
-                {formError && (
-                  <div className="bg-red-50 text-red-700 p-3 rounded-lg mb-4 flex items-start">
-                    <AlertCircle className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />
-                    <p>{formError}</p>
-                  </div>
-                )}
-                
-                <div className="mb-4">
-                  <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
-                    Experience Title *
-                  </label>
-                  <input
-                    id="title"
-                    type="text"
-                    value={newExperience.title}
-                    onChange={(e) => setNewExperience({...newExperience, title: e.target.value})}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-                    required
-                  />
-                </div>
-                
-                <div className="mb-4">
-                  <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-                    Description *
-                  </label>
-                  <textarea
-                    id="description"
-                    rows={4}
-                    value={newExperience.description}
-                    onChange={(e) => setNewExperience({...newExperience, description: e.target.value})}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-                    required
-                  />
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                  <div>
-                    <label htmlFor="price" className="block text-sm font-medium text-gray-700 mb-1">
-                      Price (USD) *
-                    </label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <DollarSign className="h-5 w-5 text-gray-400" />
-                      </div>
-                      <input
-                        id="price"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={newExperience.price || 0}
-                        onChange={(e) => setNewExperience({...newExperience, price: parseFloat(e.target.value) || 0})}
-                        className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-                        required
-                      />
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <label htmlFor="duration" className="block text-sm font-medium text-gray-700 mb-1">
-                      Duration (hours) *
-                    </label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <Clock className="h-5 w-5 text-gray-400" />
-                      </div>
-                      <input
-                        id="duration"
-                        type="number"
-                        min="0.5"
-                        step="0.5"
-                        value={newExperience.duration || 1}
-                        onChange={(e) => setNewExperience({...newExperience, duration: parseFloat(e.target.value) || 1})}
-                        className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-                        required
-                      />
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <label htmlFor="maxSpots" className="block text-sm font-medium text-gray-700 mb-1">
-                      Max Spots *
-                    </label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <Users className="h-5 w-5 text-gray-400" />
-                      </div>
-                      <input
-                        id="maxSpots"
-                        type="number"
-                        min="1"
-                        value={newExperience.maxSpots || 10}
-                        onChange={(e) => setNewExperience({...newExperience, maxSpots: parseInt(e.target.value) || 10})}
-                        className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-                        required
-                      />
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="mb-4">
-                  <label htmlFor="guideId" className="block text-sm font-medium text-gray-700 mb-1">
-                    Assign Guide *
-                  </label>
-                  <select
-                    id="guideId"
-                    value={newExperience.guideId}
-                    onChange={(e) => setNewExperience({...newExperience, guideId: e.target.value})}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-                    required
-                  >
-                    <option value="">-- Select Guide --</option>
-                    {displayGuides.map((guide) => (
-                      <option key={guide.id} value={guide.id}>
-                        {guide.full_name}
-                      </option>
+                        </td>
+                      </tr>
                     ))}
-                  </select>
-                </div>
-                
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Media (Images & Videos) *
-                  </label>
-                  <p className="text-sm text-gray-500 mb-2">
-                    Add images and videos for this experience. At least one image is required.
-                  </p>
-                  <MultiMediaUploader 
-                    media={media}
-                    onMediaChange={handleMediaChange}
-                    onError={setFormError}
-                    folderName="experience-media"
-                    maxSizeMB={50}
-                  />
-                </div>
-                
-                <div className="flex justify-end space-x-3">
-                  <button
-                    type="button"
-                    onClick={() => setShowAddExperienceForm(false)}
-                    className="bg-white border border-gray-300 text-gray-700 font-medium py-2 px-4 rounded-md hover:bg-gray-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md"
-                  >
-                    Create Experience
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
-      
-      {/* Image Upload Modal */}
-      {showImageUploader && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-            <h2 className="text-xl font-bold mb-4">Upload Image</h2>
-            
-            <ImageUploader 
-              onImageUploaded={handleImageUploaded}
-              onError={(error) => setFormError(error)}
-            />
-            
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={() => setShowImageUploader(false)}
-                className="bg-white border border-gray-300 text-gray-700 font-medium py-2 px-4 rounded-md hover:bg-gray-50"
-              >
-                Cancel
-              </button>
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
-        </div>
+          )}
+
+          {/* Tour Guides Tab */}
+          {currentTab === 'guides' && (
+            <div className="bg-white rounded-xl shadow-md overflow-hidden">
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center">
+                    <Users className="h-6 w-6 text-green-600 mr-2" />
+                    <h2 className="text-xl font-bold">Tour Guides</h2>
+                  </div>
+                  <Link
+                    to="/territory-management/edit-guide/new"
+                    className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md flex items-center"
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Guide
+                  </Link>
+                </div>
+              </div>
+              
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Name
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Email
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {tourGuides.map((guide) => (
+                      <tr key={guide.id}>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="font-medium text-gray-900">{guide.full_name}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-gray-500">{guide.email}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <Link
+                            to={`/territory-management/edit-guide/${guide.id}`}
+                            className="text-blue-600 hover:text-blue-900"
+                          >
+                            <Edit className="h-5 w-5" />
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Finances Tab */}
+          {currentTab === 'finances' && (
+            <div className="space-y-6">
+              {/* Earnings Summary */}
+              <div className="bg-white rounded-xl shadow-md p-6">
+                <h2 className="text-xl font-bold mb-4">Commission Summary</h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-green-50 p-4 rounded-lg">
+                    <h3 className="font-semibold text-green-800 mb-1">Total Earnings</h3>
+                    <p className="text-3xl font-bold text-green-600">{formatCurrency(totalEarnings)}</p>
+                  </div>
+                  <div className="bg-green-50 p-4 rounded-lg">
+                    <h3 className="font-semibold text-green-800 mb-1">Pending</h3>
+                    <p className="text-3xl font-bold text-green-600">{formatCurrency(pendingEarnings)}</p>
+                  </div>
+                  <div className="bg-green-50 p-4 rounded-lg">
+                    <h3 className="font-semibold text-green-800 mb-1">Paid</h3>
+                    <p className="text-3xl font-bold text-green-600">{formatCurrency(paidEarnings)}</p>
+                  </div>
+                </div>
+                <div className="mt-4 text-sm text-gray-500">
+                  <p>You earn 10% commission on all bookings for experiences in your region.</p>
+                </div>
+              </div>
+
+              {/* Earnings Table */}
+              <div className="bg-white rounded-xl shadow-md overflow-hidden">
+                <div className="p-6 border-b border-gray-200">
+                  <div className="flex items-center">
+                    <DollarSign className="h-6 w-6 text-green-600 mr-2" />
+                    <h2 className="text-xl font-bold">Earnings History</h2>
+                  </div>
+                </div>
+                
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Date
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Experience
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Tourist
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Amount
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Status
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {earnings.map((earning) => (
+                        <tr key={earning.id}>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{formatDate(earning.created_at)}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900">
+                              {earning.bookings.experiences.title}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-500">
+                              {earning.bookings.profiles.full_name}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900">
+                              {formatCurrency(earning.amount)}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                              earning.status === 'paid' 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {earning.status === 'paid' ? 'Paid' : 'Pending'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Payments Table */}
+              <div className="bg-white rounded-xl shadow-md overflow-hidden">
+                <div className="p-6 border-b border-gray-200">
+                  <div className="flex items-center">
+                    <DollarSign className="h-6 w-6 text-green-600 mr-2" />
+                    <h2 className="text-xl font-bold">Payment History</h2>
+                  </div>
+                </div>
+                
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Date
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Amount
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Method
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Reference
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {payments.map((payment) => (
+                        <tr key={payment.id}>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{formatDate(payment.payment_date)}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900">
+                              {formatCurrency(payment.amount)}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-500">
+                              {payment.payment_method.replace('_', ' ')}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-500">
+                              {payment.payment_reference}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
