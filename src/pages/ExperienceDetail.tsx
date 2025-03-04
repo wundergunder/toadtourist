@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
 import { 
   MapPin, Calendar, Clock, Users, Star, ArrowLeft, 
-  DollarSign, ChevronLeft, ChevronRight, AlertCircle 
+  DollarSign, ChevronLeft, ChevronRight, AlertCircle, Play, Video, X
 } from 'lucide-react';
 
 interface Experience {
@@ -16,6 +16,7 @@ interface Experience {
   max_spots: number;
   available_spots: number;
   image_urls: string[];
+  video_urls?: string[];
   territory_id: string;
   guide_id: string;
 }
@@ -60,6 +61,8 @@ const ExperienceDetail: React.FC = () => {
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card'>('cash');
   const [bookingError, setBookingError] = useState<string | null>(null);
   const [bookingSuccess, setBookingSuccess] = useState(false);
+  const [showVideo, setShowVideo] = useState(false);
+  const [currentVideoUrl, setCurrentVideoUrl] = useState<string | null>(null);
   
   // Get referral code from URL if present
   const queryParams = new URLSearchParams(location.search);
@@ -162,6 +165,139 @@ const ExperienceDetail: React.FC = () => {
     );
   };
 
+  const handlePlayVideo = (videoUrl: string) => {
+    setCurrentVideoUrl(videoUrl);
+    setShowVideo(true);
+  };
+
+  const closeVideoModal = () => {
+    setShowVideo(false);
+    setCurrentVideoUrl(null);
+  };
+
+  // Placeholder data functions
+  const getPlaceholderExperience = (experienceId: string): Experience => {
+    if (experienceId === 'jungle-kayaking') {
+      return {
+        id: 'jungle-kayaking',
+        title: 'Jungle Kayaking Adventure',
+        description: 'Paddle through the lush mangroves and spot wildlife on this guided kayaking tour. Our experienced guides will take you through hidden waterways where you can observe birds, monkeys, and possibly manatees in their natural habitat.\n\nThis tour begins at our base camp where you will receive safety instructions and equipment. We will then transport you to the starting point on the river where you will board your kayak. The journey takes you through narrow channels lined with mangroves, opening occasionally into wider lagoons rich with wildlife.\n\nAlong the way, your guide will point out interesting plants and animals, explaining their ecological importance. You will have opportunities to take photos and simply enjoy the tranquility of this unique ecosystem.\n\nThis tour is suitable for beginners and includes all necessary equipment including life jackets, paddles, and dry bags for your belongings. We recommend bringing sunscreen, insect repellent, a hat, and water.',
+        price: 45,
+        duration: 3,
+        max_spots: 12,
+        available_spots: 8,
+        image_urls: [
+          'https://images.unsplash.com/photo-1544551763-92ab472cad5d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80',
+          'https://images.unsplash.com/photo-1572125675722-238a4f1f4ea2?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80',
+          'https://images.unsplash.com/photo-1623991618729-acd138770029?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80'
+        ],
+        video_urls: [],
+        territory_id: 'rio-dulce',
+        guide_id: 'guide-1'
+      };
+    } else if (experienceId === 'mayan-cooking') {
+      return {
+        id: 'mayan-cooking',
+        title: 'Mayan Cooking Class',
+        description: 'Learn to prepare traditional Mayan dishes with local ingredients and ancient techniques. This hands-on cooking class takes place in a traditional kitchen where you will learn about the cultural significance of Mayan cuisine while preparing a delicious meal to enjoy together.',
+        price: 35,
+        duration: 4,
+        max_spots: 8,
+        available_spots: 4,
+        image_urls: [
+          'https://images.unsplash.com/photo-1566559532215-bbc9b4cc6d2a?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80',
+          'https://images.unsplash.com/photo-1604152135912-04a022e23696?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80'
+        ],
+        video_urls: [],
+        territory_id: 'rio-dulce',
+        guide_id: 'guide-2'
+      };
+    } else if (experienceId === 'waterfall-trek') {
+      return {
+        id: 'waterfall-trek',
+        title: 'Hidden Waterfall Trek',
+        description: 'Hike through the rainforest to discover hidden waterfalls and natural swimming pools. This guided trek takes you off the beaten path to some of the most beautiful and secluded spots in the region. Along the way, your guide will share knowledge about local flora and fauna.',
+        price: 55,
+        duration: 6,
+        max_spots: 15,
+        available_spots: 12,
+        image_urls: [
+          'https://images.unsplash.com/photo-1596786232430-dfa08ebf4e7f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80',
+          'https://images.unsplash.com/photo-1588392382834-a891154bca4d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80'
+        ],
+        video_urls: [],
+        territory_id: 'rio-dulce',
+        guide_id: 'guide-3'
+      };
+    } else {
+      // Default placeholder for unknown experiences
+      return {
+        id: experienceId,
+        title: 'Jungle Adventure',
+        description: 'Experience the beauty of the jungle with our expert guides. This tour offers a unique opportunity to explore the natural wonders of Rio Dulce.',
+        price: 50,
+        duration: 4,
+        max_spots: 10,
+        available_spots: 6,
+        image_urls: [
+          'https://images.unsplash.com/photo-1544551763-92ab472cad5d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80'
+        ],
+        video_urls: [],
+        territory_id: 'rio-dulce',
+        guide_id: 'guide-1'
+      };
+    }
+  };
+
+  const getPlaceholderTerritory = (): Territory => {
+    return {
+      id: 'rio-dulce',
+      name: 'Rio Dulce'
+    };
+  };
+
+  const getPlaceholderGuide = (): Guide => {
+    return {
+      id: 'guide-1',
+      full_name: 'Carlos Mendez'
+    };
+  };
+
+  const getPlaceholderReviews = (): Review[] => {
+    return [
+      {
+        id: 'review-1',
+        tourist_id: 'tourist-1',
+        rating: 5,
+        comment: 'Amazing experience! Our guide was knowledgeable and we saw so much wildlife. Highly recommend!',
+        created_at: '2023-06-15T14:30:00Z',
+        profiles: {
+          full_name: 'Sarah Johnson'
+        }
+      },
+      {
+        id: 'review-2',
+        tourist_id: 'tourist-2',
+        rating: 4,
+        comment: 'Great tour, beautiful scenery. The kayaks were comfortable and the pace was perfect for beginners.',
+        created_at: '2023-05-22T09:15:00Z',
+        profiles: {
+          full_name: 'Michael Chen'
+        }
+      },
+      {
+        id: 'review-3',
+        tourist_id: 'tourist-3',
+        rating: 5,
+        comment: 'One of the highlights of our trip to Guatemala! We saw monkeys, toucans, and even a manatee!',
+        created_at: '2023-04-10T16:45:00Z',
+        profiles: {
+          full_name: 'Emma Rodriguez'
+        }
+      }
+    ];
+  };
+
   const handleBooking = async () => {
     if (!user) {
       // Store referral code in localStorage before redirecting to login
@@ -258,125 +394,6 @@ const ExperienceDetail: React.FC = () => {
     }
   };
 
-  // Placeholder data functions
-  const getPlaceholderExperience = (experienceId: string): Experience => {
-    if (experienceId === 'jungle-kayaking') {
-      return {
-        id: 'jungle-kayaking',
-        title: 'Jungle Kayaking Adventure',
-        description: 'Paddle through the lush mangroves and spot wildlife on this guided kayaking tour. Our experienced guides will take you through hidden waterways where you can observe birds, monkeys, and possibly manatees in their natural habitat.\n\nThis tour begins at our base camp where you will receive safety instructions and equipment. We will then transport you to the starting point on the river where you will board your kayak. The journey takes you through narrow channels lined with mangroves, opening occasionally into wider lagoons rich with wildlife.\n\nAlong the way, your guide will point out interesting plants and animals, explaining their ecological importance. You will have opportunities to take photos and simply enjoy the tranquility of this unique ecosystem.\n\nThis tour is suitable for beginners and includes all necessary equipment including life jackets, paddles, and dry bags for your belongings. We recommend bringing sunscreen, insect repellent, a hat, and water.',
-        price: 45,
-        duration: 3,
-        max_spots: 12,
-        available_spots: 8,
-        image_urls: [
-          'https://images.unsplash.com/photo-1544551763-92ab472cad5d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80',
-          'https://images.unsplash.com/photo-1572125675722-238a4f1f4ea2?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80',
-          'https://images.unsplash.com/photo-1623991618729-acd138770029?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80'
-        ],
-        territory_id: 'rio-dulce',
-        guide_id: 'guide-1'
-      };
-    } else if (experienceId === 'mayan-cooking') {
-      return {
-        id: 'mayan-cooking',
-        title: 'Mayan Cooking Class',
-        description: 'Learn to prepare traditional Mayan dishes with local ingredients and ancient techniques. This hands-on cooking class takes place in a traditional kitchen where you will learn about the cultural significance of Mayan cuisine while preparing a delicious meal to enjoy together.',
-        price: 35,
-        duration: 4,
-        max_spots: 8,
-        available_spots: 4,
-        image_urls: [
-          'https://images.unsplash.com/photo-1566559532215-bbc9b4cc6d2a?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80',
-          'https://images.unsplash.com/photo-1604152135912-04a022e23696?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80'
-        ],
-        territory_id: 'rio-dulce',
-        guide_id: 'guide-2'
-      };
-    } else if (experienceId === 'waterfall-trek') {
-      return {
-        id: 'waterfall-trek',
-        title: 'Hidden Waterfall Trek',
-        description: 'Hike through the rainforest to discover hidden waterfalls and natural swimming pools. This guided trek takes you off the beaten path to some of the most beautiful and secluded spots in the region. Along the way, your guide will share knowledge about local flora and fauna.',
-        price: 55,
-        duration: 6,
-        max_spots: 15,
-        available_spots: 12,
-        image_urls: [
-          'https://images.unsplash.com/photo-1596786232430-dfa08ebf4e7f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80',
-          'https://images.unsplash.com/photo-1588392382834-a891154bca4d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80'
-        ],
-        territory_id: 'rio-dulce',
-        guide_id: 'guide-3'
-      };
-    } else {
-      // Default placeholder for unknown experiences
-      return {
-        id: experienceId,
-        title: 'Jungle Adventure',
-        description: 'Experience the beauty of the jungle with our expert guides. This tour offers a unique opportunity to explore the natural wonders of Rio Dulce.',
-        price: 50,
-        duration: 4,
-        max_spots: 10,
-        available_spots: 6,
-        image_urls: [
-          'https://images.unsplash.com/photo-1544551763-92ab472cad5d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80'
-        ],
-        territory_id: 'rio-dulce',
-        guide_id: 'guide-1'
-      };
-    }
-  };
-
-  const getPlaceholderTerritory = (): Territory => {
-    return {
-      id: 'rio-dulce',
-      name: 'Rio Dulce'
-    };
-  };
-
-  const getPlaceholderGuide = (): Guide => {
-    return {
-      id: 'guide-1',
-      full_name: 'Carlos Mendez'
-    };
-  };
-
-  const getPlaceholderReviews = (): Review[] => {
-    return [
-      {
-        id: 'review-1',
-        tourist_id: 'tourist-1',
-        rating: 5,
-        comment: 'Amazing experience! Our guide was knowledgeable and we saw so much wildlife. Highly recommend!',
-        created_at: '2023-06-15T14:30:00Z',
-        profiles: {
-          full_name: 'Sarah Johnson'
-        }
-      },
-      {
-        id: 'review-2',
-        tourist_id: 'tourist-2',
-        rating: 4,
-        comment: 'Great tour, beautiful scenery. The kayaks were comfortable and the pace was perfect for beginners.',
-        created_at: '2023-05-22T09:15:00Z',
-        profiles: {
-          full_name: 'Michael Chen'
-        }
-      },
-      {
-        id: 'review-3',
-        tourist_id: 'tourist-3',
-        rating: 5,
-        comment: 'One of the highlights of our trip to Guatemala! We saw monkeys, toucans, and even a manatee!',
-        created_at: '2023-04-10T16:45:00Z',
-        profiles: {
-          full_name: 'Emma Rodriguez'
-        }
-      }
-    ];
-  };
-
   const formatDate = (dateString: string) => {
     const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'long', day: 'numeric' };
     return new Date(dateString).toLocaleDateString(undefined, options);
@@ -402,6 +419,8 @@ const ExperienceDetail: React.FC = () => {
     }
     return null;
   };
+
+  const hasVideos = experience?.video_urls && experience.video_urls.length > 0;
 
   return (
     <div>
@@ -470,6 +489,39 @@ const ExperienceDetail: React.FC = () => {
                   )}
                 </div>
               </div>
+
+              {/* Videos Section */}
+              {hasVideos && (
+                <div className="bg-white rounded-xl shadow-md p-6">
+                  <div className="flex items-center mb-4">
+                    <Video className="h-6 w-6 text-green-600 mr-2" />
+                    <h2 className="text-xl font-bold">Experience Videos</h2>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {experience.video_urls?.map((videoUrl, index) => (
+                      <div 
+                        key={index} 
+                        className="relative h-48 bg-gray-200 rounded-lg overflow-hidden cursor-pointer group"
+                        onClick={() => handlePlayVideo(videoUrl)}
+                      >
+                        {/* Video thumbnail/preview */}
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <button 
+                            className="bg-green-600/80 hover:bg-green-600 text-white rounded-full p-4 transition-colors"
+                          >
+                            <Play className="h-8 w-8" />
+                          </button>
+                        </div>
+                        
+                        {/* Video label */}
+                        <div className="absolute bottom-2 left-2 text-white text-sm font-medium">
+                          Video {index + 1}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Experience Info */}
               <div className="bg-white rounded-xl shadow-md p-6">
@@ -672,6 +724,39 @@ const ExperienceDetail: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {/* Video Modal */}
+          {showVideo && currentVideoUrl && (
+            <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
+              <div className="relative w-full max-w-4xl bg-black rounded-lg overflow-hidden">
+                <button 
+                  onClick={closeVideoModal}
+                  className="absolute -top-12 right-0 text-white hover:text-gray-300 p-2"
+                  aria-label="Close video"
+                >
+                  <X className="h-8 w-8" />
+                </button>
+                <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+                  <video 
+                    src={currentVideoUrl}
+                    className="absolute top-0 left-0 w-full h-full"
+                    controls
+                    autoPlay
+                    playsInline
+                    controlsList="nodownload"
+                    onError={(e) => {
+                      console.error('Video playback error:', e);
+                      setError('Failed to load video. Please try again.');
+                      closeVideoModal();
+                    }}
+                  >
+                    <source src={currentVideoUrl} type="video/mp4" />
+                    Your browser does not support the video tag.
+                  </video>
+                </div>
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>

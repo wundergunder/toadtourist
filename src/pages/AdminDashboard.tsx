@@ -3,10 +3,10 @@ import { Navigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
 import { 
-  Users, Map, User, AlertCircle, Check, X, Plus, Trash2, Edit, Save, Upload 
+  Users, Map, User, AlertCircle, Check, X, Plus, Trash2, Edit, Save, Shield 
 } from 'lucide-react';
-import { UserRole } from '../types/supabase';
 import TerritoryImageUploader from '../components/TerritoryImageUploader';
+import { UserRole } from '../types/supabase';
 
 interface TerritoryManager {
   id: string;
@@ -812,7 +812,7 @@ const AdminDashboard: React.FC = () => {
       
       {/* Add Territory Manager Modal */}
       {showAddManagerForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black bg-opacity -50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
             <h2 className="text-xl font-bold mb-4">Add Region Manager</h2>
             

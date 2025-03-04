@@ -6,6 +6,7 @@ import {
   MapPin, DollarSign, Clock, Users, AlertCircle, Check, X, Plus, Save, Image, Upload 
 } from 'lucide-react';
 import MultiImageUploader from '../components/MultiImageUploader';
+import MultiMediaUploader from '../components/MultiMediaUploader';
 
 interface Experience {
   id: string;
@@ -16,6 +17,7 @@ interface Experience {
   max_spots: number;
   available_spots: number;
   image_urls: string[];
+  video_urls?: string[];
   territory_id: string;
   guide_id: string;
 }
@@ -24,6 +26,11 @@ interface Guide {
   id: string;
   full_name: string;
   roles: string[];
+}
+
+interface Media {
+  url: string;
+  type: 'image' | 'video';
 }
 
 const EditExperience: React.FC = () => {
@@ -40,6 +47,7 @@ const EditExperience: React.FC = () => {
     max_spots: 0,
     available_spots: 0,
     image_urls: [''],
+    video_urls: [],
     territory_id: '',
     guide_id: ''
   });
@@ -48,6 +56,7 @@ const EditExperience: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [media, setMedia] = useState<Media[]>([{ url: '', type: 'image' }]);
 
   useEffect(() => {
     const fetchExperienceAndGuides = async () => {
@@ -72,6 +81,30 @@ const EditExperience: React.FC = () => {
         
         setExperience(experienceData);
         
+        // Convert image_urls and video_urls to media array
+        const mediaItems: Media[] = [];
+        
+        // Add images
+        if (experienceData.image_urls && experienceData.image_urls.length > 0) {
+          experienceData.image_urls.forEach(url => {
+            mediaItems.push({ url, type: 'image' });
+          });
+        }
+        
+        // Add videos if they exist
+        if (experienceData.video_urls && experienceData.video_urls.length > 0) {
+          experienceData.video_urls.forEach(url => {
+            mediaItems.push({ url, type: 'video' });
+          });
+        }
+        
+        // If no media, add an empty image item
+        if (mediaItems.length === 0) {
+          mediaItems.push({ url: '', type: 'image' });
+        }
+        
+        setMedia(mediaItems);
+        
         // Fetch guides for this territory
         const { data: guidesData, error: guidesError } = await supabase
           .from('profiles')
@@ -94,18 +127,31 @@ const EditExperience: React.FC = () => {
     }
   }, [id, user, profile, hasRole]);
 
+  const handleMediaChange = (updatedMedia: Media[]) => {
+    setMedia(updatedMedia);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccessMessage(null);
     
     try {
+      // Extract image and video URLs from media
+      const imageUrls = media
+        .filter(item => item.type === 'image' && item.url.trim() !== '')
+        .map(item => item.url);
+      
+      const videoUrls = media
+        .filter(item => item.type === 'video' && item.url.trim() !== '')
+        .map(item => item.url);
+      
       // Validate inputs
       if (!experience.title || !experience.description || experience.price <= 0 || 
           experience.duration <= 0 || experience.max_spots <= 0 || 
           experience.available_spots < 0 || !experience.guide_id || 
-          experience.image_urls.length === 0 || !experience.image_urls[0]) {
-        setError('Please fill in all required fields with valid values');
+          imageUrls.length === 0) {
+        setError('Please fill in all required fields with valid values. At least one image is required.');
         return;
       }
       
@@ -124,7 +170,8 @@ const EditExperience: React.FC = () => {
           duration: experience.duration,
           max_spots: experience.max_spots,
           available_spots: experience.available_spots,
-          image_urls: experience.image_urls.filter(url => url.trim() !== ''),
+          image_urls: imageUrls,
+          video_urls: videoUrls,
           guide_id: experience.guide_id
         })
         .eq('id', id);
@@ -139,13 +186,6 @@ const EditExperience: React.FC = () => {
       console.error('Error updating experience:', error);
       setError('Failed to update experience. Please try again.');
     }
-  };
-
-  const handleImageUrlsChange = (urls: string[]) => {
-    setExperience({
-      ...experience,
-      image_urls: urls
-    });
   };
 
   return (
@@ -311,12 +351,18 @@ const EditExperience: React.FC = () => {
           </div>
           
           <div className="mb-6">
-            <MultiImageUploader 
-              imageUrls={experience.image_urls}
-              onImageUrlsChange={handleImageUrlsChange}
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Media (Images & Videos) *
+            </label>
+            <p className="text-sm text-gray-500 mb-2">
+              Add images and videos for this experience. At least one image is required.
+            </p>
+            <MultiMediaUploader 
+              media={media}
+              onMediaChange={handleMediaChange}
               onError={setError}
-              folderName="experience-images"
-              maxSizeMB={5}
+              folderName="experience-media"
+              maxSizeMB={50}
             />
           </div>
           

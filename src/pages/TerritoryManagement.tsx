@@ -6,6 +6,7 @@ import {
   Users, Map, User, AlertCircle, Check, X, Plus, Trash2, Edit, Save, Image, Upload, Shield 
 } from 'lucide-react';
 import ImageUploader from '../components/ImageUploader';
+import MultiMediaUploader from '../components/MultiMediaUploader';
 import { UserRole } from '../types/supabase';
 
 interface TourGuide {
@@ -33,6 +34,11 @@ interface Territory {
   name: string;
   description: string;
   image_url: string;
+}
+
+interface Media {
+  url: string;
+  type: 'image' | 'video';
 }
 
 const TerritoryManagement: React.FC = () => {
@@ -66,6 +72,9 @@ const TerritoryManagement: React.FC = () => {
     guideId: '',
     imageUrls: ['']
   });
+
+  // Media state for new experience
+  const [media, setMedia] = useState<Media[]>([{ url: '', type: 'image' }]);
 
   // Image upload state
   const [showImageUploader, setShowImageUploader] = useState(false);
@@ -335,10 +344,19 @@ const TerritoryManagement: React.FC = () => {
     setFormError(null);
     setFormSuccess(null);
     
-    const { title, description, price, duration, maxSpots, guideId, imageUrls } = newExperience;
+    if (!profile?.territory_id) {
+      setFormError('You are not assigned to a region');
+      return;
+    }
     
-    if (!title || !description || price <= 0 || duration <= 0 || maxSpots <= 0 || !guideId || !imageUrls[0]) {
-      setFormError('Please fill in all required fields with valid values');
+    const { title, description, price, duration, maxSpots, guideId } = newExperience;
+    
+    // Validate that we have at least one image
+    const imageUrls = media.filter(item => item.type === 'image' && item.url.trim() !== '').map(item => item.url);
+    const videoUrls = media.filter(item => item.type === 'video' && item.url.trim() !== '').map(item => item.url);
+    
+    if (!title || !description || price <= 0 || duration <= 0 || maxSpots <= 0 || !guideId || imageUrls.length === 0) {
+      setFormError('Please fill in all required fields with valid values. At least one image is required.');
       return;
     }
     
@@ -357,8 +375,9 @@ const TerritoryManagement: React.FC = () => {
           duration,
           max_spots: maxSpots,
           available_spots: maxSpots,
-          image_urls: imageUrls.filter(url => url.trim() !== ''),
-          territory_id: profile?.territory_id,
+          image_urls: imageUrls,
+          video_urls: videoUrls,
+          territory_id: profile.territory_id,
           guide_id: guideId
         })
         .select(`
@@ -392,6 +411,7 @@ const TerritoryManagement: React.FC = () => {
         guideId: '',
         imageUrls: ['']
       });
+      setMedia([{ url: '', type: 'image' }]);
       setTimeout(() => {
         setShowAddExperienceForm(false);
         setFormSuccess(null);
@@ -427,47 +447,8 @@ const TerritoryManagement: React.FC = () => {
     }
   };
 
-  const handleAddImageUrl = () => {
-    setNewExperience({
-      ...newExperience,
-      imageUrls: [...newExperience.imageUrls, '']
-    });
-  };
-
-  const handleRemoveImageUrl = (index: number) => {
-    const updatedUrls = [...newExperience.imageUrls];
-    updatedUrls.splice(index, 1);
-    setNewExperience({
-      ...newExperience,
-      imageUrls: updatedUrls
-    });
-  };
-
-  const handleImageUrlChange = (index: number, value: string) => {
-    const updatedUrls = [...newExperience.imageUrls];
-    updatedUrls[index] = value;
-    setNewExperience({
-      ...newExperience,
-      imageUrls: updatedUrls
-    });
-  };
-
-  const handleUploadImage = (index: number) => {
-    setCurrentImageIndex(index);
-    setShowImageUploader(true);
-  };
-
-  const handleImageUploaded = (url: string) => {
-    if (currentImageIndex !== null) {
-      const updatedUrls = [...newExperience.imageUrls];
-      updatedUrls[currentImageIndex] = url;
-      setNewExperience({
-        ...newExperience,
-        imageUrls: updatedUrls
-      });
-      setShowImageUploader(false);
-      setCurrentImageIndex(null);
-    }
+  const handleMediaChange = (updatedMedia: Media[]) => {
+    setMedia(updatedMedia);
   };
 
   // If not territory manager, redirect to home
@@ -998,60 +979,18 @@ const TerritoryManagement: React.FC = () => {
                 
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Images *
+                    Media (Images & Videos) *
                   </label>
-                  {newExperience.imageUrls.map((url, index) => (
-                    <div key={index} className="flex items-center mb-2">
-                      <div className="flex-grow mr-2">
-                        <div className="flex items-center">
-                          <input
-                            type="url"
-                            value={url}
-                            onChange={(e) => handleImageUrlChange(index, e.target.value)}
-                            placeholder="https://example.com/image.jpg"
-                            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-                            required={index === 0}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleUploadImage(index)}
-                            className="ml-2 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-3 rounded-md flex items-center"
-                          >
-                            <Upload className="h-4 w-4" />
-                          </button>
-                        </div>
-                        {url && (
-                          <div className="mt-1 h-16 w-full">
-                            <img 
-                              src={url} 
-                              alt={`Preview ${index + 1}`} 
-                              className="h-full object-cover rounded-md"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).src = 'https://via.placeholder.com/150?text=Invalid+Image+URL';
-                              }}
-                            />
-                          </div>
-                        )}
-                      </div>
-                      {index > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveImageUrl(index)}
-                          className="text-red-600 hover:text-red-900"
-                        >
-                          <X className="h-5 w-5" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={handleAddImageUrl}
-                    className="mt-2 inline-flex items-center text-sm font-medium text-green-600 hover:text-green-700"
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    Add Another Image
-                  </button>
+                  <p className="text-sm text-gray-500 mb-2">
+                    Add images and videos for this experience. At least one image is required.
+                  </p>
+                  <MultiMediaUploader 
+                    media={media}
+                    onMediaChange={handleMediaChange}
+                    onError={setFormError}
+                    folderName="experience-media"
+                    maxSizeMB={50}
+                  />
                 </div>
                 
                 <div className="flex justify-end space-x-3">
