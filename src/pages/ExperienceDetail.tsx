@@ -731,7 +731,7 @@ const ExperienceDetail: React.FC = () => {
               <div className="relative w-full max-w-4xl bg-black rounded-lg overflow-hidden">
                 <button 
                   onClick={closeVideoModal}
-                  className="absolute -top-12 right-0 text-white hover:text-gray-300 p-2"
+                  className="absolute top-4 right-4 text-white hover:text-gray-300 p-2 bg-black/50 hover:bg-black/70 rounded-full transition-colors"
                   aria-label="Close video"
                 >
                   <X className="h-8 w-8" />
