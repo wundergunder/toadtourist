@@ -18,6 +18,7 @@ import EditGuide from './pages/EditGuide';
 import GuideDashboard from './pages/GuideDashboard';
 import UserProfile from './pages/UserProfile';
 import HotelOperatorDashboard from './pages/HotelOperatorDashboard';
+import RegionalPartner from './pages/RegionalPartner';
 import { UserRole } from './types/supabase';
 
 // Protected Route Component
@@ -60,10 +61,12 @@ function App() {
           <Route path="regions" element={<Territories />} />
           <Route path="territories/:id" element={<TerritoryDetail />} />
           <Route path="experiences/:id" element={<ExperienceDetail />} />
+          <Route path="regional-partner" element={<RegionalPartner />} />
           
           <Route path="profile" element={
             <ProtectedRoute>
-              <UserProfile /> </ProtectedRoute>
+              <UserProfile />
+            </ProtectedRoute>
           } />
           
           <Route path="bookings" element={
@@ -102,7 +105,7 @@ function App() {
             </ProtectedRoute>
           } />
           
-          <Route path="hotel-dashboard" element={
+          <Route path="hotel-operator-dashboard" element={
             <ProtectedRoute allowedRoles={['hotel_operator']}>
               <HotelOperatorDashboard />
             </ProtectedRoute>

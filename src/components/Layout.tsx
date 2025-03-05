@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Outlet, Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { LogOut, Menu, X, User, Edit, Hotel } from 'lucide-react';
+import { LogOut, Menu, X, User, Edit, Hotel, MapPin } from 'lucide-react';
 
 const ToadLogo = () => (
   <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -62,9 +62,7 @@ const Layout: React.FC = () => {
           
           <div className="hidden md:flex items-center space-x-6">
             <Link to="/" className="hover:text-green-200">Home</Link>
-            {hasRole('tourist') && (
-              <Link to="/regions" className="hover:text-green-200">Regions</Link>
-            )}
+            <Link to="/regions" className="hover:text-green-200">Regions</Link>
             
             {user ? (
               <>
@@ -145,9 +143,7 @@ const Layout: React.FC = () => {
           <div className="md:hidden bg-green-700 px-4 py-2">
             <div className="flex flex-col space-y-3">
               <Link to="/" className="text-white hover:text-green-200">Home</Link>
-              {hasRole('tourist') && (
-                <Link to="/regions" className="text-white hover:text-green-200">Regions</Link>
-              )}
+              <Link to="/regions" className="text-white hover:text-green-200">Regions</Link>
               
               {user ? (
                 <>
@@ -210,7 +206,10 @@ const Layout: React.FC = () => {
               <Link to="/about" className="hover:text-green-200 mb-2 md:mb-0">About Us</Link>
               <Link to="/contact" className="hover:text-green-200 mb-2 md:mb-0">Contact</Link>
               <Link to="/privacy" className="hover:text-green-200 mb-2 md:mb-0">Privacy Policy</Link>
-              <Link to="/terms" className="hover:text-green-200">Terms of Service</Link>
+              <Link to="/terms" className="hover:text-green-200 mb-2 md:mb-0">Terms of Service</Link>
+              <Link to="/regional-partner" className="hover:text-green-200 mb-2 md:mb-0">
+                <span className="font-medium">Earn Money</span> as a Regional Partner
+              </Link>
             </div>
           </div>
           <div className="mt-6 text-center text-green-200">
