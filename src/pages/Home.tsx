@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Calendar, MapPin, Star, Users } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
+import { supabase } from '../lib/supabase';
 
 const ToadLogo = () => (
   <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -16,8 +17,65 @@ const ToadLogo = () => (
   </svg>
 );
 
+interface Experience {
+  id: string;
+  title: string;
+  description: string;
+  price: number;
+  duration: number;
+  max_spots: number;
+  available_spots: number;
+  image_urls: string[];
+  featured: boolean;
+  featured_order: number;
+  territory_id: string;
+  territories: {
+    name: string;
+  };
+}
+
 const Home: React.FC = () => {
   const { user } = useAuthStore();
+  const [featuredExperiences, setFeaturedExperiences] = useState<Experience[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchFeaturedExperiences = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('experiences')
+          .select(`
+            id,
+            title,
+            description,
+            price,
+            duration,
+            max_spots,
+            available_spots,
+            image_urls,
+            featured,
+            featured_order,
+            territory_id,
+            territories (
+              name
+            )
+          `)
+          .eq('featured', true)
+          .order('featured_order', { ascending: true });
+
+        if (error) throw error;
+        setFeaturedExperiences(data || []);
+      } catch (error) {
+        console.error('Error fetching featured experiences:', error);
+        setError('Failed to load featured experiences');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchFeaturedExperiences();
+  }, []);
   
   return (
     <div className="space-y-12">
@@ -97,114 +155,66 @@ const Home: React.FC = () => {
         </div>
       </section>
 
-      {/* Featured Experiences */}
+      {/* Featured Experiences Section */}
       <section>
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold">Popular Experiences</h2>
-          <Link to="/experiences" className="text-green-600 hover:text-green-700 font-medium">View All</Link>
+          <h2 className="text-2xl font-bold">Featured Experiences</h2>
+          <Link to="/regions" className="text-green-600 hover:text-green-700 font-medium">View All</Link>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* Experience Card 1 */}
-          <div className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow">
-            <div className="relative h-48">
-              <img 
-                src="https://images.unsplash.com/photo-1544551763-92ab472cad5d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80" 
-                alt="Jungle Kayaking" 
-                className="h-full w-full object-cover"
-              />
-              <div className="absolute top-4 right-4 bg-white rounded-full px-3 py-1 text-sm font-bold text-green-700">
-                $45 / person
-              </div>
+          {isLoading ? (
+            <div className="col-span-3 flex justify-center items-center h-64">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500"></div>
             </div>
-            <div className="p-6">
-              <div className="flex items-center mb-2">
-                <Star className="h-4 w-4 text-yellow-500 mr-1" />
-                <span className="text-sm text-gray-600">4.9 (128 reviews)</span>
-              </div>
-              <h3 className="text-xl font-bold mb-2">Jungle Kayaking Adventure</h3>
-              <p className="text-gray-600 mb-4 line-clamp-2">
-                Paddle through the lush mangroves and spot wildlife on this guided kayaking tour.
-              </p>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center text-sm text-gray-500">
-                  <Calendar className="h-4 w-4 mr-1" />
-                  <span>3 hours</span>
-                </div>
-                <div className="flex items-center text-sm text-gray-500">
-                  <Users className="h-4 w-4 mr-1" />
-                  <span>8 spots left</span>
-                </div>
-              </div>
+          ) : error ? (
+            <div className="col-span-3 bg-red-50 text-red-700 p-4 rounded-lg">
+              {error}
             </div>
-          </div>
-
-          {/* Experience Card 2 */}
-          <div className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow">
-            <div className="relative h-48">
-              <img 
-                src="https://images.unsplash.com/photo-1566559532215-bbc9b4cc6d2a?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80" 
-                alt="Mayan Cooking Class" 
-                className="h-full w-full object-cover"
-              />
-              <div className="absolute top-4 right-4 bg-white rounded-full px-3 py-1 text-sm font-bold text-green-700">
-                $35 / person
-              </div>
-            </div>
-            <div className="p-6">
-              <div className="flex items-center mb-2">
-                <Star className="h-4 w-4 text-yellow-500 mr-1" />
-                <span className="text-sm text-gray-600">4.8 (92 reviews)</span>
-              </div>
-              <h3 className="text-xl font-bold mb-2">Mayan Cooking Class</h3>
-              <p className="text-gray-600 mb-4 line-clamp-2">
-                Learn to prepare traditional Mayan dishes with local ingredients and ancient techniques.
-              </p>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center text-sm text-gray-500">
-                  <Calendar className="h-4 w-4 mr-1" />
-                  <span>4 hours</span>
+          ) : featuredExperiences.length > 0 ? (
+            featuredExperiences.map((experience) => (
+              <Link 
+                key={experience.id}
+                to={`/experiences/${experience.id}`}
+                className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow"
+              >
+                <div className="relative h-48">
+                  <img 
+                    src={experience.image_urls[0]} 
+                    alt={experience.title} 
+                    className="h-full w-full object-cover"
+                  />
+                  <div className="absolute top-4 right-4 bg-white rounded-full px-3 py-1 text-sm font-bold text-green-700">
+                    ${experience.price} / person
+                  </div>
                 </div>
-                <div className="flex items-center text-sm text-gray-500">
-                  <Users className="h-4 w-4 mr-1" />
-                  <span>4 spots left</span>
+                <div className="p-6">
+                  <div className="flex items-center mb-2">
+                    <Star className="h-4 w-4 text-yellow-500 mr-1" />
+                    <span className="text-sm text-gray-600">Featured Experience</span>
+                  </div>
+                  <h3 className="text-xl font-bold mb-2">{experience.title}</h3>
+                  <p className="text-gray-600 mb-4 line-clamp-2">
+                    {experience.description}
+                  </p>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center text-sm text-gray-500">
+                      <Calendar className="h-4 w-4 mr-1" />
+                      <span>{experience.duration} hours</span>
+                    </div>
+                    <div className="flex items-center text-sm text-gray-500">
+                      <Users className="h-4 w-4 mr-1" />
+                      <span>{experience.available_spots} spots left</span>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              </Link>
+            ))
+          ) : (
+            <div className="col-span-3 text-center py-12 bg-white rounded-xl shadow-md">
+              <h3 className="text-xl font-semibold text-gray-700 mb-2">No Featured Experiences Yet</h3>
+              <p className="text-gray-500">Check back soon for featured experiences!</p>
             </div>
-          </div>
-
-          {/* Experience Card 3 */}
-          <div className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow">
-            <div className="relative h-48">
-              <img 
-                src="https://images.unsplash.com/photo-1596786232430-dfa08ebf4e7f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80" 
-                alt="Waterfall Hike" 
-                className="h-full w-full object-cover"
-              />
-              <div className="absolute top-4 right-4 bg-white rounded-full px-3 py-1 text-sm font-bold text-green-700">
-                $55 / person
-              </div>
-            </div>
-            <div className="p-6">
-              <div className="flex items-center mb-2">
-                <Star className="h-4 w-4 text-yellow-500 mr-1" />
-                <span className="text-sm text-gray-600">4.7 (76 reviews)</span>
-              </div>
-              <h3 className="text-xl font-bold mb-2">Hidden Waterfall Trek</h3>
-              <p className="text-gray-600 mb-4 line-clamp-2">
-                Hike through the rainforest to discover hidden waterfalls and natural swimming pools.
-              </p>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center text-sm text-gray-500">
-                  <Calendar className="h-4 w-4 mr-1" />
-                  <span>6 hours</span>
-                </div>
-                <div className="flex items-center text-sm text-gray-500">
-                  <Users className="h-4 w-4 mr-1" />
-                  <span>12 spots left</span>
-                </div>
-              </div>
-            </div>
-          </div>
+          )}
         </div>
       </section>
 

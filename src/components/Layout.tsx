@@ -78,7 +78,7 @@ const Layout: React.FC = () => {
                   <Link to="/guide-dashboard" className="hover:text-green-200">Guide Dashboard</Link>
                 )}
                 {hasRole('hotel_operator') && (
-                  <Link to="/hotel-dashboard" className="hover:text-green-200">Hotel Dashboard</Link>
+                  <Link to="/hotel-operator-dashboard" className="hover:text-green-200">Hotel Dashboard</Link>
                 )}
                 {hasRole('tourist') && (
                   <Link to="/bookings" className="hover:text-green-200">My Bookings</Link>
@@ -161,7 +161,7 @@ const Layout: React.FC = () => {
                     <Link to="/guide-dashboard" className="text-white hover:text-green-200">Guide Dashboard</Link>
                   )}
                   {hasRole('hotel_operator') && (
-                    <Link to="/hotel-dashboard" className="text-white hover:text-green-200">Hotel Dashboard</Link>
+                    <Link to="/hotel-operator-dashboard" className="text-white hover:text-green-200">Hotel Dashboard</Link>
                   )}
                   {hasRole('tourist') && (
                     <Link to="/bookings" className="text-white hover:text-green-200">My Bookings</Link>
