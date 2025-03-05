@@ -17,6 +17,13 @@ const ToadLogo = () => (
   </svg>
 );
 
+interface Territory {
+  id: string;
+  name: string;
+  description: string;
+  image_url: string;
+}
+
 interface Experience {
   id: string;
   title: string;
@@ -36,14 +43,28 @@ interface Experience {
 
 const Home: React.FC = () => {
   const { user } = useAuthStore();
+  const [featuredTerritory, setFeaturedTerritory] = useState<Territory | null>(null);
   const [featuredExperiences, setFeaturedExperiences] = useState<Experience[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchFeaturedExperiences = async () => {
+    const fetchData = async () => {
       try {
-        const { data, error } = await supabase
+        setIsLoading(true);
+        
+        // Fetch Rio Dulce territory data
+        const { data: territoryData, error: territoryError } = await supabase
+          .from('territories')
+          .select('*')
+          .eq('id', 'rio-dulce')
+          .single();
+
+        if (territoryError) throw territoryError;
+        setFeaturedTerritory(territoryData);
+
+        // Fetch featured experiences
+        const { data: experiencesData, error: experiencesError } = await supabase
           .from('experiences')
           .select(`
             id,
@@ -64,17 +85,17 @@ const Home: React.FC = () => {
           .eq('featured', true)
           .order('featured_order', { ascending: true });
 
-        if (error) throw error;
-        setFeaturedExperiences(data || []);
+        if (experiencesError) throw experiencesError;
+        setFeaturedExperiences(experiencesData || []);
       } catch (error) {
-        console.error('Error fetching featured experiences:', error);
-        setError('Failed to load featured experiences');
+        console.error('Error fetching data:', error);
+        setError('Failed to load data');
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchFeaturedExperiences();
+    fetchData();
   }, []);
   
   return (
@@ -119,41 +140,39 @@ const Home: React.FC = () => {
       </section>
 
       {/* Featured Region */}
-      <section className="bg-white rounded-xl shadow-md overflow-hidden">
-        <div className="md:flex">
-          <div className="md:w-1/2">
-            <img 
-              src="https://images.unsplash.com/photo-1591604129939-f1efa4d9f7fa?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80" 
-              alt="Rio Dulce, Guatemala" 
-              className="h-full w-full object-cover"
-            />
-          </div>
-          <div className="md:w-1/2 p-8">
-            <div className="flex items-center mb-2">
-              <MapPin className="h-5 w-5 text-green-600 mr-2" />
-              <span className="text-sm text-green-600 font-medium">Featured Region</span>
+      {featuredTerritory && (
+        <section className="bg-white rounded-xl shadow-md overflow-hidden">
+          <div className="md:flex">
+            <div className="md:w-1/2">
+              <img 
+                src={featuredTerritory.image_url}
+                alt={`${featuredTerritory.name}, Guatemala`} 
+                className="h-full w-full object-cover"
+              />
             </div>
-            <h2 className="text-3xl font-bold mb-4">Rio Dulce, Guatemala</h2>
-            <p className="text-gray-600 mb-6">
-              Rio Dulce is a lush river valley in eastern Guatemala, known for its stunning natural beauty, 
-              wildlife, and the blend of Mayan and Caribbean cultures. Explore the emerald waters, 
-              visit ancient ruins, and immerse yourself in the local way of life.
-            </p>
-            <div className="flex flex-wrap gap-2 mb-6">
-              <span className="bg-green-100 text-green-800 text-xs font-medium px-3 py-1 rounded-full">Jungle Tours</span>
-              <span className="bg-green-100 text-green-800 text-xs font-medium px-3 py-1 rounded-full">Boat Trips</span>
-              <span className="bg-green-100 text-green-800 text-xs font-medium px-3 py-1 rounded-full">Wildlife</span>
-              <span className="bg-green-100 text-green-800 text-xs font-medium px-3 py-1 rounded-full">Cultural Experiences</span>
+            <div className="md:w-1/2 p-8">
+              <div className="flex items-center mb-2">
+                <MapPin className="h-5 w-5 text-green-600 mr-2" />
+                <span className="text-sm text-green-600 font-medium">Featured Region</span>
+              </div>
+              <h2 className="text-3xl font-bold mb-4">{featuredTerritory.name}</h2>
+              <p className="text-gray-600 mb-6">{featuredTerritory.description}</p>
+              <div className="flex flex-wrap gap-2 mb-6">
+                <span className="bg-green-100 text-green-800 text-xs font-medium px-3 py-1 rounded-full">Jungle Tours</span>
+                <span className="bg-green-100 text-green-800 text-xs font-medium px-3 py-1 rounded-full">Boat Trips</span>
+                <span className="bg-green-100 text-green-800 text-xs font-medium px-3 py-1 rounded-full">Wildlife</span>
+                <span className="bg-green-100 text-green-800 text-xs font-medium px-3 py-1 rounded-full">Cultural Experiences</span>
+              </div>
+              <Link 
+                to={`/territories/${featuredTerritory.id}`}
+                className="inline-block bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg transition-colors"
+              >
+                Explore {featuredTerritory.name}
+              </Link>
             </div>
-            <Link 
-              to="/territories/rio-dulce" 
-              className="inline-block bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg transition-colors"
-            >
-              Explore Rio Dulce
-            </Link>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Featured Experiences Section */}
       <section>
@@ -179,7 +198,7 @@ const Home: React.FC = () => {
               >
                 <div className="relative h-48">
                   <img 
-                    src={experience.image_urls[0]} 
+                    src={experience.image_urls[0]}
                     alt={experience.title} 
                     className="h-full w-full object-cover"
                   />
